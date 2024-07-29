@@ -7,5 +7,8 @@ pub mod search;
 pub mod structs;
 mod utils;
 
+#[cfg(feature = "graphics")]
+pub mod graphics;
+
 #[cfg(feature = "api")]
 pub mod api;
