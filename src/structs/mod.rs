@@ -50,7 +50,7 @@ impl<const N: usize> Span<N> {
 
     // Provides a rotater function rot(angle: f64) which returns a rotation matrix
     // that rotates by an angle in radians along &self's span.
-    pub fn get_rotater(&self) -> impl Fn(f64) -> OMatrix<f64, Const<N>, Const<N>> {
+    pub fn get_rotater(&self) -> impl Fn(f64) -> Box<OMatrix<f64, Const<N>, Const<N>>> {
         let identity = OMatrix::<f64, Const<N>, Const<N>>::identity();
 
         let a = self.u * self.v.transpose() - self.v * self.u.transpose();

@@ -36,6 +36,17 @@ pub fn vector_to_string<const N: usize>(v: &SVector<f64, N>) -> String {
     result
 }
 
+pub fn make_zeroed_matrix<T: bytemuck::Zeroable>() -> Box<T> {
+    use std::alloc::Layout;
+    let layout = Layout::new::<T>();
+    unsafe {
+        let ptr = std::alloc::alloc_zeroed(layout);
+        assert_ne!(ptr, std::ptr::null_mut(), "Failed to allocate memory");
+        // Since we asked for zeroed memory, it is valid matrix.
+        Box::from_raw(ptr as _)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use nalgebra::{vector, SVector};

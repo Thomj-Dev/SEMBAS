@@ -6,9 +6,9 @@ use crate::{
     extensions::Queue,
     prelude::report::ExplorationStatus,
     structs::{backprop::Backpropagation, Classifier, Halfspace, Result, Sample, Span},
-    utils::{array_distance, svector_to_array},
+    utils::{array_distance, make_zeroed_matrix, svector_to_array},
 };
-use nalgebra::{self, Const, OMatrix, SVector};
+use nalgebra::{self, Const, DMatrix, DVector, OMatrix, SVector};
 use petgraph::{graph::NodeIndex, visit::EdgeRef, Direction::Incoming, Graph};
 use rstar::{primitives::GeomWithData, RTree};
 
@@ -21,7 +21,7 @@ pub struct MeshExplorer<const N: usize, F: AdhererFactory<N>> {
     d: f64,
     boundary: Vec<Halfspace<N>>,
     margin: f64,
-    basis_vectors: OMatrix<f64, Const<N>, Const<N>>,
+    basis_vectors: Box<OMatrix<f64, Const<N>, Const<N>>>,
     path_queue: Vec<Path<N>>,
     current_parent: NodeID,
     tree: Graph<Halfspace<N>, ()>,
@@ -42,7 +42,7 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
     ///   If uncertain of what value to use, try 0.9 * d to start.
     pub fn new(d: f64, root: Halfspace<N>, margin: f64, adherer_f: F) -> Self {
         let boundary = vec![root];
-        let basis_vectors = OMatrix::<f64, Const<N>, Const<N>>::identity();
+        let basis_vectors = make_zeroed_matrix();
         let path_queue = vec![];
         let current_parent = 0; // dunno
         let tree = Graph::new();
@@ -109,7 +109,7 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
 
     fn create_cardinals(
         n: SVector<f64, N>,
-        basis_vectors: OMatrix<f64, Const<N>, Const<N>>,
+        basis_vectors: Box<OMatrix<f64, Const<N>, Const<N>>>,
     ) -> Vec<SVector<f64, N>> {
         let align_vector: SVector<f64, N> = basis_vectors.column(0).into();
         let span = Span::new(n, align_vector);
@@ -119,7 +119,7 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
             basis_vectors
         } else {
             let rot = span.get_rotater()(angle);
-            rot * basis_vectors
+            *rot * *basis_vectors
         };
 
         let mut cardinals = vec![];
