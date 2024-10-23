@@ -69,12 +69,12 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
     }
 
     fn select_parent(&mut self) -> Option<(Halfspace<N>, NodeID, SVector<f64, N>)> {
-        while let Some((id, v)) = self.path_queue.dequeue() {
-            let hs = &self.boundary[id];
-            let p = *hs.b + self.d * v;
+        while let Some((path_id, path_vector)) = self.path_queue.dequeue() {
+            let hs = &self.boundary[path_id];
+            let point = *hs.b + self.d * path_vector;
 
-            if !self.check_overlap(p) {
-                return Some((*hs, id, v));
+            if !self.check_overlap(point) {
+                return Some((*hs, path_id, path_vector));
             }
         }
 
@@ -164,9 +164,14 @@ impl<const N: usize, F: AdhererFactory<N>> Explorer<N, F> for MeshExplorer<N, F>
                     let sample = *result;
 
                     if let AdhererState::FoundBoundary(hs) = adh.get_state() {
-                        self.boundary.push(hs);
-                        self.add_child(hs, Some(NodeIndex::new(self.current_parent)));
-                        self.adherer = None
+                        let p = *hs.b + self.d * sample.into_inner();
+
+                        if !self.check_overlap(p) {
+                            self.boundary.push(hs);
+                        
+                            self.add_child(hs, Some(NodeIndex::new(self.current_parent)));
+                            self.adherer = None
+                        }
                     }
 
                     Ok(Some(sample))
