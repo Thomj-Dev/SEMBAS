@@ -2,6 +2,12 @@ use nalgebra::SVector;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+use crate::{
+    extensions::Queue,
+    prelude::{BoundaryPair, Classifier, OutOfMode, Result, Sample, WithinMode},
+    structs::Domain,
+};
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SearchState {
     Scanning,
@@ -44,6 +50,60 @@ impl<const N: usize> DomainSampler<N> for MonteCarloSampler<N> {
 
     fn domain(&self) -> &Domain<N> {
         &self.domain
+    }
+}
+
+pub struct StandardGS<const N: usize, Ds: DomainSampler<N>> {
+    domain: Domain<N>,
+    sampler: Ds,
+    queue: Vec<BoundaryPair<N>>,
+    state: SearchState,
+
+    t: Option<WithinMode<N>>,
+    x: Option<OutOfMode<N>>,
+}
+
+impl<const N: usize, C: Classifier<N>, Ds: DomainSampler<N>> GlobalSearch<N, C>
+    for StandardGS<N, Ds>
+{
+    fn step(&mut self, classifier: &mut C) -> Result<Sample<N>> {
+        let s = classifier.classify(&self.sampler.next())?;
+        match s {
+            Sample::WithinMode(t) => {
+                if self.t.is_none() {
+                    if let Some(x) = self.x {
+                        self.queue.enqueue(BoundaryPair::new(t, x));
+                        self.state = SearchState::BoundaryQueued
+                    } else {
+                        self.t = Some(t);
+                    }
+                }
+            }
+            Sample::OutOfMode(x) => {
+                if self.x.is_none() {
+                    if let Some(t) = self.t {
+                        self.queue.enqueue(BoundaryPair::new(t, x));
+                        self.state = SearchState::BoundaryQueued
+                    } else {
+                        self.x = Some(x);
+                    }
+                }
+            }
+        }
+
+        Ok(s)
+    }
+
+    fn domain(&self) -> &Domain<N> {
+        self.sampler.domain()
+    }
+
+    fn state(&self) -> SearchState {
+        self.state
+    }
+
+    fn pop(&mut self) -> Option<BoundaryPair<N>> {
+        self.queue.dequeue()
     }
 }
 
