@@ -1,6 +1,6 @@
 use nalgebra::vector;
 use sembas::prelude::*;
-use sembas::search::global_search::{MonteCarloSearch, SearchFactory};
+use sembas::search::global_search::{DomainSampler, MonteCarloSampler};
 use sembas::search::surfacing::binary_surface_search;
 use sembas::sps::Sphere;
 
@@ -69,7 +69,7 @@ fn find_initial_boundary_pair<const N: usize, C: Classifier<N>>(
     history: &mut Vec<Sample<N>>,
     max_samples: i32,
 ) -> Result<BoundaryPair<N>> {
-    let mut search = MonteCarloSearch::new(Domain::normalized(), 1);
+    let mut search = MonteCarloSampler::new(Domain::normalized(), 1);
     let mut take_sample = move || {
         let p = search.sample();
         classifier

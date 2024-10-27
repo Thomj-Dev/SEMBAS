@@ -5,7 +5,7 @@ use crate::{
         Adherer, AdhererFactory, AdhererState, Boundary, BoundaryRTree, Classifier, Domain,
         Halfspace, MeshExplorer, Result, Sample,
     },
-    search::global_search::{MonteCarloSearch, SearchFactory},
+    search::global_search::{DomainSampler, MonteCarloSampler},
 };
 
 /// Given an initial halfspace, determines a more accurate surface direction and
@@ -127,7 +127,7 @@ pub fn approx_mc_volume<const N: usize>(
     let point_cloud: Vec<_> = boundary.iter().map(|hs| *hs.b).collect();
     let domain = Domain::new_from_point_cloud(&point_cloud);
 
-    let mut mc = MonteCarloSearch::new(domain, seed);
+    let mut mc = MonteCarloSampler::new(domain, seed);
 
     let mut wm_count = 0;
 
@@ -139,7 +139,7 @@ pub fn approx_mc_volume<const N: usize>(
 
     let ratio = wm_count as f64 / n_samples as f64;
 
-    ratio * mc.get_domain().volume()
+    ratio * mc.domain().volume()
 }
 
 /// Estimates the volume of an envelope using Monte Carlo sampling using approximate
@@ -174,7 +174,7 @@ pub fn approx_mc_volume_intersection<const N: usize>(
 ) -> (f64, f64, f64) {
     let pc: Vec<_> = b1.iter().chain(b2).map(|hs| *hs.b).collect();
 
-    let mut mc = MonteCarloSearch::new(Domain::new_from_point_cloud(&pc), seed);
+    let mut mc = MonteCarloSampler::new(Domain::new_from_point_cloud(&pc), seed);
 
     let mut b1_only_count = 0;
     let mut b2_only_count = 0;
@@ -198,7 +198,7 @@ pub fn approx_mc_volume_intersection<const N: usize>(
     let ratio2 = b2_only_count as f64 / n_samples as f64;
     let intersect_ratio = both_count as f64 / n_samples as f64;
 
-    let vol = mc.get_domain().volume();
+    let vol = mc.domain().volume();
     let b1_vol = ratio1 * vol;
     let b2_vol = ratio2 * vol;
     let intesect_vol = intersect_ratio * vol;
