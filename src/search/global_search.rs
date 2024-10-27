@@ -23,9 +23,23 @@ pub trait DomainSampler<const N: usize> {
 
 /// A system for finding boundary pairs. These
 pub trait GlobalSearch<const N: usize, C: Classifier<N>> {
+    /// Take a step in the global search process.
+    /// ## Arguments
+    /// * classifier : The classifier of the FUT to explore.
+    /// ## Return (Ok)
+    /// sample : The classified input that was executed by the FUT.
+    /// ## Error (Err)
+    /// sampling_err : SamplingError.
+    ///     * OutOfBounds: If self.domain is unaligned from the FUT's expected input
+    ///     domain, this error may be thrown.
     fn step(&mut self, classifier: &mut C) -> Result<Sample<N>>;
+
+    /// The search domain used by the GlobalSearch exploration. Defines the bounds
+    /// for where samples will be taken.
     fn domain(&self) -> &Domain<N>;
- 
+
+    /// Returns one of the boundary pairs that has been found. Returns None if no
+    /// boundary pairs has been found yet.
     fn pop(&mut self) -> Option<BoundaryPair<N>>;
 }
 
