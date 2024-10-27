@@ -13,7 +13,7 @@ pub struct MonteCarloSampler<const N: usize> {
 /// A system that produces points to be sampled for the purpose of exploring a
 /// domain, also referred to as global search.
 pub trait DomainSampler<const N: usize> {
-    fn sample(&mut self) -> SVector<f64, N>;
+    fn next(&mut self) -> SVector<f64, N>;
     fn domain(&self) -> &Domain<N>;
 }
 }
@@ -26,7 +26,7 @@ impl<const N: usize> MonteCarloSampler<N> {
 }
 
 impl<const N: usize> DomainSampler<N> for MonteCarloSampler<N> {
-    fn sample(&mut self) -> SVector<f64, N> {
+    fn next(&mut self) -> SVector<f64, N> {
         let v: SVector<f64, N> = SVector::from_fn(|_, _| self.rng.gen());
         v.component_mul(&self.domain.dimensions()) + self.domain.low()
     }
@@ -49,7 +49,7 @@ mod test_monte_carlo {
         let mut mc = MonteCarloSampler::new(domain.clone(), 1);
 
         assert!(
-            (0..10000).all(|_| domain.contains(&mc.sample())),
+            (0..10000).all(|_| domain.contains(&mc.next())),
             "MonteCarlo resulted in invalid samples - out of bounds?"
         )
     }

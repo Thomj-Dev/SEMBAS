@@ -71,7 +71,7 @@ fn find_initial_boundary_pair<const N: usize, C: Classifier<N>>(
 ) -> Result<BoundaryPair<N>> {
     let mut search = MonteCarloSampler::new(Domain::normalized(), 1);
     let mut take_sample = move || {
-        let p = search.sample();
+        let p = search.next();
         classifier
             .classify(&p)
             .expect("Invalid sample. Bad global search domain?")

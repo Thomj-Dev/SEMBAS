@@ -132,7 +132,7 @@ pub fn approx_mc_volume<const N: usize>(
     let mut wm_count = 0;
 
     for _ in 0..n_samples {
-        if approx_prediction(mc.sample(), boundary, btree, n_neighbors).class() {
+        if approx_prediction(mc.next(), boundary, btree, n_neighbors).class() {
             wm_count += 1;
         }
     }
@@ -181,7 +181,7 @@ pub fn approx_mc_volume_intersection<const N: usize>(
     let mut both_count = 0;
 
     for _ in 0..n_samples {
-        let p = mc.sample();
+        let p = mc.next();
         let cls1 = approx_prediction(p, b1, btree1, n_neighbors).class();
         let cls2 = approx_prediction(p, b2, btree2, n_neighbors).class();
 
