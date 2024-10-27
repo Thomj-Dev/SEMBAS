@@ -2,6 +2,7 @@ use nalgebra::SVector;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SearchState {
     Scanning,
     BoundaryQueued,
