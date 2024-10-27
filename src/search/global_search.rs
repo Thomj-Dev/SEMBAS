@@ -2,7 +2,10 @@ use nalgebra::SVector;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
-use crate::structs::Domain;
+pub enum SearchState {
+    Scanning,
+    BoundaryQueued,
+}
 
 /// Random exploration of the search domain.
 pub struct MonteCarloSampler<const N: usize> {
@@ -16,6 +19,13 @@ pub trait DomainSampler<const N: usize> {
     fn next(&mut self) -> SVector<f64, N>;
     fn domain(&self) -> &Domain<N>;
 }
+
+/// A system for finding boundary pairs. These
+pub trait GlobalSearch<const N: usize, C: Classifier<N>> {
+    fn step(&mut self, classifier: &mut C) -> Result<Sample<N>>;
+    fn domain(&self) -> &Domain<N>;
+    fn state(&self) -> SearchState;
+    fn pop(&mut self) -> Option<BoundaryPair<N>>;
 }
 
 impl<const N: usize> MonteCarloSampler<N> {
