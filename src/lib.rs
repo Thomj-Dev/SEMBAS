@@ -4,6 +4,7 @@ pub mod boundary_tools;
 pub mod explorer_core;
 pub mod explorers;
 pub mod extensions;
+pub mod pipeline;
 pub mod prelude;
 pub mod search;
 pub mod structs;

@@ -62,12 +62,22 @@ impl<const N: usize> DomainSampler<N> for MonteCarloSampler<N> {
 }
 
 pub struct StandardGS<const N: usize, Ds: DomainSampler<N>> {
-    domain: Domain<N>,
     sampler: Ds,
     queue: Vec<BoundaryPair<N>>,
 
     t: Option<WithinMode<N>>,
     x: Option<OutOfMode<N>>,
+}
+
+impl<const N: usize, Ds: DomainSampler<N>> StandardGS<N, Ds> {
+    pub fn new(sampler: Ds) -> Self {
+        Self {
+            sampler,
+            queue: vec![],
+            t: None,
+            x: None,
+        }
+    }
 }
 
 impl<const N: usize, C: Classifier<N>, Ds: DomainSampler<N>> GlobalSearch<N, C>
