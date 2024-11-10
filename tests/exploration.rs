@@ -9,7 +9,7 @@ use nalgebra::{vector, SVector};
 use petgraph::graph::NodeIndex;
 use sembas::{
     adherers::const_adherer::ConstantAdhererFactory,
-    boundary_tools::estimation::{approx_mc_volume, approx_prediction},
+    boundary_tools::estimation::approx_prediction,
     explorer_core::Explorer,
     explorers::MeshExplorer,
     sps::Sphere,
@@ -135,12 +135,17 @@ fn saves_and_loads_results_correctly() {
         }
     }
 
-    const PATH: &str = ".data/tmp.json";
+    const DIR: &str = "tmp-testdata";
+    const FILE_NAME: &str = "tmp.json";
+    let path: String = format!("{DIR}/{FILE_NAME}");
+
+    std::fs::create_dir_all(DIR).unwrap();
+
     let status = expl.describe();
-    status.save(PATH).unwrap();
+    status.save(&path).unwrap();
 
     let loaded_status: ExplorationStatus<10, ConstantAdhererFactory<10>> =
-        ExplorationStatus::load(PATH).unwrap();
+        ExplorationStatus::load(&path).unwrap();
 
     assert!(
         loaded_status
@@ -160,7 +165,8 @@ fn saves_and_loads_results_correctly() {
         "One or more boundary points were incorrectly stored in json?"
     );
 
-    std::fs::remove_file(PATH).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    std::fs::remove_dir_all(DIR).unwrap();
 }
 
 #[test]
@@ -220,12 +226,12 @@ fn oob_err_prunes_exploration_branch() {
         i: usize,
     }
     impl<const N: usize> Classifier<N> for TestClassifier<N> {
-        fn classify(&mut self, p: &SVector<f64, N>) -> Result<Sample<N>> {
+        fn classify(&mut self, p: SVector<f64, N>) -> Result<Sample<N>> {
             if self.i > 2 {
                 Err(SamplingError::OutOfBounds)
             } else {
                 self.i += 1;
-                Ok(Sample::from_class(*p, true))
+                Ok(Sample::from_class(p, true))
             }
         }
     }
@@ -256,8 +262,8 @@ fn oob_err_prunes_exploration_branch() {
 fn ble_err_prunes_exploration_branch() {
     struct TestClassifier<const N: usize> {}
     impl<const N: usize> Classifier<N> for TestClassifier<N> {
-        fn classify(&mut self, p: &SVector<f64, N>) -> Result<Sample<N>> {
-            Ok(Sample::from_class(*p, true))
+        fn classify(&mut self, p: SVector<f64, N>) -> Result<Sample<N>> {
+            Ok(Sample::from_class(p, true))
         }
     }
     let mut classifier = TestClassifier::<10> {};
@@ -324,27 +330,4 @@ fn prediction_tests() {
             panic!("False Negative for within mode point {x:?}.")
         }
     }
-}
-
-#[test]
-fn volume_mc() {
-    let mut sphere = setup_sphere::<3>();
-    let radius = sphere.radius();
-    // let area = sphere_surface_area(&sphere);
-    let mut expl = setup_mesh_expl(&sphere);
-
-    let timeout = Duration::from_secs(5);
-    let start_time = Instant::now();
-
-    while let Ok(Some(_)) = expl.step(&mut sphere) {
-        if start_time.elapsed() > timeout {
-            panic!("Test exceeded expected time to completion. Mesh explorer got stuck?");
-        }
-    }
-
-    let true_volume = 4.0 / 3.0 * PI * radius.powf(3.0);
-    let est_vol = approx_mc_volume(expl.boundary(), expl.knn_index(), 100, 1, 1);
-
-    let perc_err = (est_vol - true_volume).abs() / true_volume;
-    assert!(perc_err < 0.2, "Excessive error in volume: {perc_err}");
 }

@@ -65,9 +65,8 @@ impl<const N: usize> BinarySearchAdherer<N> {
 
     fn take_initial_sample<C: Classifier<N>>(&mut self, classifier: &mut C) -> Result<Sample<N>> {
         let cur = self.pivot.b + self.v;
-        let sample = classifier.classify(&cur)?;
-        let cls = sample.class();
-        self.prev_cls = Some(cls);
+        let sample = classifier.classify(cur)?;
+        self.prev_cls = Some(sample.class());
 
         match sample {
             Sample::WithinMode(t) => self.t = Some(t),
@@ -76,7 +75,7 @@ impl<const N: usize> BinarySearchAdherer<N> {
 
         self.n_iter -= 1;
 
-        Ok(Sample::from_class(cur, cls))
+        Ok(sample)
     }
 
     fn take_sample<C: Classifier<N>>(
@@ -89,8 +88,8 @@ impl<const N: usize> BinarySearchAdherer<N> {
         self.v = rot * self.v;
 
         let cur = self.pivot.b + self.v;
-        let sample = classifier.classify(&cur)?;
-        let cls = sample.class();
+        let sample = classifier.classify(cur)?;
+        self.prev_cls = Some(sample.class());
 
         match sample {
             Sample::WithinMode(t) => self.t = Some(t),
@@ -99,8 +98,6 @@ impl<const N: usize> BinarySearchAdherer<N> {
 
         self.angle /= 2.0;
         self.n_iter -= 1;
-
-        self.prev_cls = Some(cls);
 
         Ok(sample)
     }

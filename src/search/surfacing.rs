@@ -23,7 +23,7 @@ pub fn binary_surface_search<const N: usize, C: Classifier<N>>(
     let mut i = 0;
 
     while s.norm() > max_err && i < max_samples {
-        match classifier.classify(&(p_t + s))? {
+        match classifier.classify(p_t + s)? {
             Sample::WithinMode(_) => p_t += s,
             Sample::OutOfMode(_) => p_x -= s,
         }
@@ -89,12 +89,12 @@ mod test_surfacer {
             .expect("Failed to find boundary?");
 
         assert!(
-            sphere.classify(&hs.b).unwrap().class(),
+            sphere.classify(*hs.b).unwrap().class(),
             "Halfspace outside of geometry?"
         );
 
         assert!(
-            !sphere.classify(&(hs.b + hs.n * d)).unwrap().class(),
+            !sphere.classify(hs.b + hs.n * d).unwrap().class(),
             "Halfspace not on boundary?"
         );
     }
@@ -118,11 +118,11 @@ mod test_surfacer {
             .expect("Failed to find boundary within the maximum number of samples ({max_samples})");
 
         assert!(
-            sphere.classify(&hs.b).unwrap().class(),
+            sphere.classify(*hs.b).unwrap().class(),
             "Halfspace outside of geometry?"
         );
         assert!(
-            !sphere.classify(&(hs.b + hs.n * d)).unwrap().class(),
+            !sphere.classify(hs.b + hs.n * d).unwrap().class(),
             "Halfspace not on boundary?"
         );
     }

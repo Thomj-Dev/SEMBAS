@@ -6,7 +6,7 @@ use crate::{
     extensions::Queue,
     prelude::{report::ExplorationStatus, KnnNode, NodeID},
     structs::{backprop::Backpropagation, Classifier, Halfspace, Result, Sample, Span},
-    utils::{array_distance, svector_to_array},
+    utils::array_distance,
 };
 use nalgebra::{self, Const, OMatrix, SVector};
 use petgraph::{graph::NodeIndex, visit::EdgeRef, Direction::Incoming, Graph};
@@ -73,8 +73,8 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
             let hs = &self.boundary[path_id];
             let point = *hs.b + self.d * path_vector;
 
-            if !self.check_overlap(point) {
-                return Some((*hs, path_id, path_vector));
+            if !self.check_overlap(&p) {
+                return Some((*hs, id, v));
             }
         }
 
@@ -131,11 +131,14 @@ impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
         cardinals
     }
 
-    fn check_overlap(&self, p: SVector<f64, N>) -> bool {
-        let p = svector_to_array(p);
+    fn check_overlap(&self, p: &SVector<f64, N>) -> bool {
+        let p: &[f64; N] = p
+            .as_slice()
+            .try_into()
+            .expect("Unable to convert SVector to array");
 
-        if let Some(nearest) = self.knn_index.nearest_neighbor(&p) {
-            array_distance(&p, nearest.geom()) < self.margin
+        if let Some(nearest) = self.knn_index.nearest_neighbor(p) {
+            array_distance(p, nearest.geom()) < self.margin
         } else {
             false
         }
@@ -168,7 +171,7 @@ impl<const N: usize, F: AdhererFactory<N>> Explorer<N, F> for MeshExplorer<N, F>
 
                         if !self.check_overlap(p) {
                             self.boundary.push(hs);
-                        
+
                             self.add_child(hs, Some(NodeIndex::new(self.current_parent)));
                             self.adherer = None
                         }

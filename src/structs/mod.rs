@@ -73,7 +73,7 @@ impl<const N: usize> Domain<N> {
     /// ## Safety
     /// This function is unsafe because it doesn't do any checks to ensure that for
     /// all dimensions, low < high. If this condition is not met, the Domain's
-    /// operations behavior is undefined.
+    /// operation behaviors are undefined.
     pub unsafe fn new_from_bounds(low: SVector<f64, N>, high: SVector<f64, N>) -> Self {
         Domain { low, high }
     }
@@ -126,8 +126,8 @@ impl<const N: usize> Domain<N> {
 
     /// The N-dimensional hypervolume that the domain occupies.
     pub fn volume(&self) -> f64 {
-        let bounds = self.high - self.low;
-        bounds.iter().product()
+        let dimensions = self.high - self.low;
+        dimensions.iter().product()
     }
 
     /// Checks if the given vector is within the domain.
@@ -158,6 +158,9 @@ impl<const N: usize> Domain<N> {
     /// * p: The point that is being projected
     /// * from: The domain that the point is projecting from
     /// * to: The domain that the point is projecting to
+    /// ## Returns
+    /// * p': The projected point whose relative position in @from is translated to
+    ///   the same relative position in @to.
     pub fn project_point_domains(
         p: &SVector<f64, N>,
         from: &Domain<N>,
@@ -169,9 +172,10 @@ impl<const N: usize> Domain<N> {
     /// Finds the distance between the edge of the domain from a point in the
     /// direction of the provided vector. Useful for finding target/non-target
     /// samples on the extremes of the input space.
+    /// ## Arguments
     /// * p: A point that the ray starts from
     /// * v: The direction the ray travels
-    ////// ## Returns
+    /// ## Returns
     /// * t: The linear distance between p and the edge of the domain in the
     ///   direction v
     pub fn distance_to_edge(&self, p: &SVector<f64, N>, v: &SVector<f64, N>) -> Result<f64> {

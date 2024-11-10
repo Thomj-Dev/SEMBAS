@@ -1,9 +1,6 @@
 use nalgebra::SVector;
 
-use crate::{
-    structs::{OutOfMode, Sample, WithinMode},
-    utils::svector_to_array,
-};
+use crate::structs::{OutOfMode, Sample, WithinMode};
 
 pub trait Queue<T> {
     fn enqueue(&mut self, x: T);
@@ -50,7 +47,7 @@ impl<const N: usize> From<WithinMode<N>> for SVector<f64, N> {
 
 impl<const N: usize> From<WithinMode<N>> for [f64; N] {
     fn from(value: WithinMode<N>) -> Self {
-        svector_to_array(value.0)
+        value.0.into()
     }
 }
 
@@ -62,6 +59,6 @@ impl<const N: usize> From<OutOfMode<N>> for SVector<f64, N> {
 
 impl<const N: usize> From<OutOfMode<N>> for [f64; N] {
     fn from(value: OutOfMode<N>) -> Self {
-        svector_to_array(value.0)
+        value.0.into()
     }
 }

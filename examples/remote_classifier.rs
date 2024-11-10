@@ -46,12 +46,12 @@ fn setup_local() -> JoinHandle<()> {
 
         let p1 = SVector::from_fn(|_, _| 0.5);
         println!("[Local] Sending {p1:?} request");
-        let r = classifier.classify(&p1).unwrap();
+        let r = classifier.classify(p1).unwrap();
         println!("[Local] Received result of {r}");
 
         let p2 = SVector::zeros();
         println!("[Local] Sending {p1:?} request");
-        let r = classifier.classify(&p2).unwrap();
+        let r = classifier.classify(p2).unwrap();
         println!("[Local] Received result of {r}");
     })
 }
@@ -86,7 +86,7 @@ fn setup_remote<const N: usize>() -> JoinHandle<()> {
         // performance mode. Example: an AV test scenario that runs, from which a
         // summary is returned, which you parse and return true if a collision
         // occurred otherwise false.
-        let mut classifier: Box<dyn Classifier<N>> = Sphere::boxed(
+        let mut classifier = Sphere::new(
             SVector::<f64, N>::from_fn(|_, _| 0.5),
             0.25,
             Some(Domain::normalized()),
@@ -117,7 +117,7 @@ fn setup_remote<const N: usize>() -> JoinHandle<()> {
             );
 
             let cls = classifier
-                .classify(&p)
+                .classify(p)
                 .unwrap_or(sembas::structs::Sample::OutOfMode(p.into()))
                 .class() as u8;
 

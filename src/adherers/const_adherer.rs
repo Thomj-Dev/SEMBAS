@@ -70,7 +70,7 @@ impl<const N: usize> ConstantAdherer<N> {
 
     fn take_initial_sample<C: Classifier<N>>(&mut self, classifier: &mut C) -> Result<Sample<N>> {
         let cur = self.pivot.b + self.v;
-        let sample = classifier.classify(&cur)?;
+        let sample = classifier.classify(cur)?;
         let cls = sample.class();
         let delta_angle = if cls {
             self.delta_angle
@@ -78,7 +78,7 @@ impl<const N: usize> ConstantAdherer<N> {
             -self.delta_angle
         };
         self.rot = Some(self.span.get_rotater()(delta_angle));
-        Ok(Sample::from_class(cur, cls))
+        Ok(sample)
     }
 
     fn take_sample<C: Classifier<N>>(
@@ -90,8 +90,7 @@ impl<const N: usize> ConstantAdherer<N> {
         let cur = self.pivot.b + self.v;
         self.angle += self.delta_angle;
 
-        // let sample = classifier.classify(&cur)?;
-        classifier.classify(&cur)
+        classifier.classify(cur)
     }
 }
 
@@ -109,7 +108,6 @@ impl<const N: usize> Adherer<N> for ConstantAdherer<N> {
 
         if let Some(prev) = self.samples.last() {
             match (&cur, &prev) {
-                // <- Move occurs here
                 (Sample::WithinMode(t), Sample::OutOfMode(_))
                 | (Sample::OutOfMode(_), Sample::WithinMode(t)) => {
                     let b = *t;
@@ -118,7 +116,7 @@ impl<const N: usize> Adherer<N> for ConstantAdherer<N> {
                     let n = (rot90 * s).normalize();
                     self.state = AdhererState::FoundBoundary(Halfspace { b, n });
                 }
-                _ => {}
+                _ => (),
             }
         }
 
@@ -126,7 +124,7 @@ impl<const N: usize> Adherer<N> for ConstantAdherer<N> {
             return Err(SamplingError::BoundaryLost);
         }
 
-        self.samples.push(cur); // <- use of moved value occurs here
+        self.samples.push(cur);
 
         Ok(self
             .samples

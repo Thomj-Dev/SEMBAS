@@ -1,0 +1,13 @@
+name: Run Tests
+on:
+  pull_request:
+    branches: 
+      - 'main'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Code
+        run: cargo test --features all

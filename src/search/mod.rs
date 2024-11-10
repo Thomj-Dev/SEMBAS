@@ -53,7 +53,7 @@ pub fn binary_search_between<const N: usize, C: Classifier<N>>(
         let s = p2 - p1;
         let mid = p1 + s / 2.0;
         let cls = classifier
-            .classify(&mid)
+            .classify(mid)
             .expect(
                 "Classifier threw error when sampling. Make sure @p1 and @p2 are valid samples?",
             )
@@ -110,7 +110,7 @@ pub fn find_opposing_boundary<const N: usize, C: Classifier<N>>(
     let dist = domain.distance_to_edge(&t0, &v)? * 0.999;
     let p = t0 + v * dist;
 
-    let cls = classifier.classify(&p).unwrap_or_else(|_| panic!("A point that was supposed to be on the edge of the domain (yet inside) fell outside of the classifier's domain. Incorrect @domain? p = {p:?}, v = {v:?}")).class();
+    let cls = classifier.classify(p).unwrap_or_else(|_| panic!("A point that was supposed to be on the edge of the domain (yet inside) fell outside of the classifier's domain. Incorrect @domain? p = {p:?}, v = {v:?}")).class();
 
     let (mut t, mut x) = if cls {
         (Some(p), None)
@@ -170,8 +170,8 @@ mod search_tests {
 
     struct EmptyClassifier<const N: usize> {}
     impl<const N: usize> Classifier<N> for EmptyClassifier<N> {
-        fn classify(&mut self, p: &SVector<f64, N>) -> Result<Sample<N>> {
-            Ok(Sample::from_class(*p, false))
+        fn classify(&mut self, p: SVector<f64, N>) -> Result<Sample<N>> {
+            Ok(Sample::from_class(p, false))
         }
     }
 
@@ -194,7 +194,7 @@ mod search_tests {
 
             assert!(
                 classifier
-                    .classify(&r)
+                    .classify(r)
                     .expect("Unexpected out of bounds sample from BSB result?")
                     .class(),
                 "Returned non-target (incorrect) sample?"
@@ -277,7 +277,7 @@ mod search_tests {
 
             assert!(
                 classifier
-                    .classify(&b2.into())
+                    .classify(b2.into())
                     .expect("Unexpected out of bounds sample for opposing boundary sample?")
                     .class(),
                 "Returned non-target (incorrect) sample?"
@@ -308,7 +308,7 @@ mod search_tests {
 
             assert!(
                 classifier
-                    .classify(&b2.into())
+                    .classify(b2.into())
                     .expect("Unexpected out of bounds sample for opposing boundary sample?")
                     .class(),
                 "Returned non-target (incorrect) sample?"
@@ -363,20 +363,17 @@ mod search_tests {
 
             let c1 = SVector::from_fn(|_, _| 0.15);
             let c2 = SVector::from_fn(|_, _| 0.5);
-            let sphere1 = Sphere::boxed(c1, radius, Some(Domain::normalized()));
-            let sphere2 = Sphere::boxed(c2, radius, Some(Domain::normalized()));
+            let sphere1 = Sphere::new(c1, radius, Some(Domain::normalized()));
+            let sphere2 = Sphere::new(c2, radius, Some(Domain::normalized()));
 
             let mut classifier =
-                SphereCluster::new(vec![*sphere1, *sphere2], Some(Domain::normalized()));
+                SphereCluster::new(vec![sphere1, sphere2], Some(Domain::normalized()));
 
             let v = SVector::<f64, 10>::from_fn(|_, _| 1.0).normalize();
             let b = c1 - v * (radius - d * 0.9);
 
             assert!(
-                classifier
-                    .classify(&b)
-                    .expect("Bug with invalid b.")
-                    .class(),
+                classifier.classify(b).expect("Bug with invalid b.").class(),
                 "b was not within mode"
             );
 
@@ -386,7 +383,7 @@ mod search_tests {
 
             assert!(
                 classifier
-                    .classify(&b2.into())
+                    .classify(b2.into())
                     .expect("Unexpected out of bounds sample for opposing boundary sample?")
                     .class(),
                 "Returned non-target (incorrect) sample?"

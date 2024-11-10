@@ -10,36 +10,32 @@ use crate::structs::Result;
 /// A system under test whose output can be classified as "target" or "non-target"
 /// behavior. For example, safe/unsafe.
 pub trait Classifier<const N: usize> {
-    fn classify(&mut self, p: &SVector<f64, N>) -> Result<Sample<N>>;
+    fn classify(&mut self, p: SVector<f64, N>) -> Result<Sample<N>>;
 }
 
 /// A Classifier defined by a function (p: SVector) -> Result<bool>
 pub struct FunctionClassifier<F, const N: usize>
 where
-    F: FnMut(&SVector<f64, N>) -> Result<bool>,
+    F: FnMut(SVector<f64, N>) -> Result<bool>,
 {
     fut: F,
 }
 
 impl<F, const N: usize> FunctionClassifier<F, N>
 where
-    F: FnMut(&SVector<f64, N>) -> Result<bool>,
+    F: FnMut(SVector<f64, N>) -> Result<bool>,
 {
     pub fn new(fut: F) -> Self {
         Self { fut }
-    }
-
-    pub fn boxed(fut: F) -> Box<Self> {
-        Box::new(Self { fut })
     }
 }
 
 impl<F, const N: usize> Classifier<N> for FunctionClassifier<F, N>
 where
-    F: FnMut(&SVector<f64, N>) -> Result<bool>,
+    F: FnMut(SVector<f64, N>) -> Result<bool>,
 {
-    fn classify(&mut self, p: &SVector<f64, N>) -> Result<Sample<N>> {
-        Ok(Sample::from_class(*p, (self.fut)(p)?))
+    fn classify(&mut self, p: SVector<f64, N>) -> Result<Sample<N>> {
+        Ok(Sample::from_class(p, (self.fut)(p)?))
     }
 }
 

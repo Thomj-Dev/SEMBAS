@@ -8,6 +8,12 @@ use crate::{
     search::global_search::{MonteCarloSearch, SearchFactory},
 };
 
+#[derive(Clone, Copy)]
+pub enum PredictionMode {
+    Union,
+    Intersection,
+}
+
 /// Given an initial halfspace, determines a more accurate surface direction and
 /// returns the updated halfspace,.
 /// ## Arguments
@@ -71,6 +77,11 @@ where
     Ok((Halfspace { b: hs.b, n: new_n }, neighbors, all_samples))
 }
 
+pub fn is_behind_halfspace<const N: usize>(p: &SVector<f64, N>, hs: &Halfspace<N>) -> bool {
+    let s = (p - *hs.b).normalize();
+    s.dot(&hs.n) < 0.0
+}
+
 /// Predicts whether or not some point, @p, will be classified as WithinMode or
 /// OutOfMode according to the explored boundary. As a result, does not require the
 /// classifier for the fut.
@@ -93,10 +104,49 @@ pub fn approx_prediction<const N: usize>(
             "Invalid neighbor index used on @boundary. Often a result of @boundary being out of sync or entirely different from @btree."
         );
 
-        let s = (p - *hs.b).normalize();
-        if s.dot(&hs.n) > 0.0 {
+        if !is_behind_halfspace(&p, hs) {
             cls = false;
             break;
+        }
+    }
+
+    Sample::from_class(p, cls)
+}
+
+/// Predicts whether or not some point, @p, will be classified as WithinMode or
+/// OutOfMode according to the explored boundary. As a result, does not require the
+/// classifier for the fut.
+/// ## Arguments
+/// * p : The point to be classified.
+/// * boundary : The explored boundary for the target performance mode.
+/// * btree : The RTree for @boundary.
+/// * k : The number of halfspaces to consider while classifier @p. A good default is
+///   1, but with higher resolution and dimensional boundaries, playing with this
+///   number may improve results.
+pub fn approx_group_prediction<const N: usize>(
+    mode: PredictionMode,
+    p: SVector<f64, N>,
+    group: &[(&Vec<Halfspace<N>>, &BoundaryRTree<N>)],
+    k: u32,
+) -> Sample<N> {
+    let mut cls = match mode {
+        PredictionMode::Union => false,
+        PredictionMode::Intersection => true,
+    };
+    for (boundary, btree) in group.iter() {
+        match mode {
+            PredictionMode::Union => {
+                if approx_prediction(p, boundary, btree, k).class() {
+                    cls = true;
+                    break;
+                }
+            }
+            PredictionMode::Intersection => {
+                if !approx_prediction(p, boundary, btree, k).class() {
+                    cls = false;
+                    break;
+                }
+            }
         }
     }
 
@@ -118,21 +168,23 @@ pub fn approx_prediction<const N: usize>(
 /// ## Return
 /// * volume : The volume that lies within the envelope.
 pub fn approx_mc_volume<const N: usize>(
-    boundary: &Boundary<N>,
-    btree: &BoundaryRTree<N>,
+    mode: PredictionMode,
+    group: &[(&Vec<Halfspace<N>>, &BoundaryRTree<N>)],
     n_samples: u32,
     n_neighbors: u32,
     seed: u64,
 ) -> f64 {
-    let point_cloud: Vec<_> = boundary.iter().map(|hs| *hs.b).collect();
-    let domain = Domain::new_from_point_cloud(&point_cloud);
+    let mut pc: Vec<SVector<f64, N>> = vec![]; //group1.iter().chain(group2).map(|(hs, _)| *hs.b).collect();
 
-    let mut mc = MonteCarloSearch::new(domain, seed);
+    for (boundary, _) in group.iter() {
+        pc.append(&mut boundary.iter().map(|hs| *hs.b).collect());
+    }
 
+    let mut mc = MonteCarloSearch::new(Domain::new_from_point_cloud(&pc), seed);
     let mut wm_count = 0;
 
     for _ in 0..n_samples {
-        if approx_prediction(mc.sample(), boundary, btree, n_neighbors).class() {
+        if approx_group_prediction(mode, mc.sample(), group, n_neighbors).class() {
             wm_count += 1;
         }
     }
@@ -164,15 +216,17 @@ pub fn approx_mc_volume<const N: usize>(
 /// The total volume is the sum of these voumes. The total volume of an envelop is
 /// the sum of its volume and the intersection volume.
 pub fn approx_mc_volume_intersection<const N: usize>(
-    b1: &Boundary<N>,
-    b2: &Boundary<N>,
-    btree1: &BoundaryRTree<N>,
-    btree2: &BoundaryRTree<N>,
+    group1: &[(&Vec<Halfspace<N>>, &BoundaryRTree<N>)],
+    group2: &[(&Vec<Halfspace<N>>, &BoundaryRTree<N>)],
     n_samples: u32,
     n_neighbors: u32,
     seed: u64,
 ) -> (f64, f64, f64) {
-    let pc: Vec<_> = b1.iter().chain(b2).map(|hs| *hs.b).collect();
+    let mut pc: Vec<SVector<f64, N>> = vec![]; //group1.iter().chain(group2).map(|(hs, _)| *hs.b).collect();
+
+    for (boundary, _) in group1.iter().chain(group2.iter()) {
+        pc.append(&mut boundary.iter().map(|hs| *hs.b).collect());
+    }
 
     let mut mc = MonteCarloSearch::new(Domain::new_from_point_cloud(&pc), seed);
 
@@ -182,8 +236,8 @@ pub fn approx_mc_volume_intersection<const N: usize>(
 
     for _ in 0..n_samples {
         let p = mc.sample();
-        let cls1 = approx_prediction(p, b1, btree1, n_neighbors).class();
-        let cls2 = approx_prediction(p, b2, btree2, n_neighbors).class();
+        let cls1 = approx_group_prediction(PredictionMode::Union, p, group1, n_neighbors).class();
+        let cls2 = approx_group_prediction(PredictionMode::Union, p, group2, n_neighbors).class();
 
         if cls1 && cls2 {
             both_count += 1;
@@ -282,5 +336,35 @@ mod approx_surface {
             err <= prev_err,
             "Did not decrease OSV error. Original error of {prev_err} and got new error of {err}"
         );
+    }
+}
+
+#[cfg(test)]
+mod approx_mode_prediction {
+    use nalgebra::SVector;
+
+    use crate::{
+        boundary_tools::estimation::is_behind_halfspace,
+        prelude::{Halfspace, WithinMode},
+    };
+
+    #[test]
+    fn is_behind_halfspace_accurately_returns_side() {
+        let hs = Halfspace {
+            b: WithinMode(SVector::repeat(0.5)),
+            n: SVector::<f64, 10>::repeat(1.0).normalize(),
+        };
+
+        let out_of_mode = [SVector::repeat(1.0), SVector::repeat(0.501)];
+        let in_mode = [SVector::zeros(), SVector::repeat(0.499)];
+
+        assert!(
+            in_mode.iter().all(|p| is_behind_halfspace(p, &hs)),
+            "False negative prediction for an in-mode point."
+        );
+        assert!(
+            out_of_mode.iter().all(|p| !is_behind_halfspace(p, &hs)),
+            "False negative prediction for a out-of-mode point."
+        )
     }
 }

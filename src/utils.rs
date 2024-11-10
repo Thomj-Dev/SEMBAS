@@ -1,12 +1,6 @@
 use nalgebra::SVector;
 use std::fmt::Write;
 
-pub fn svector_to_array<const N: usize>(v: SVector<f64, N>) -> [f64; N] {
-    v.as_slice()
-        .try_into()
-        .expect("Failed to convert slice to array.")
-}
-
 pub fn array_distance<const N: usize>(a1: &[f64; N], a2: &[f64; N]) -> f64 {
     let v1: SVector<f64, N> = unsafe {
         let a1_ptr = a1.as_ptr();
@@ -34,40 +28,4 @@ pub fn vector_to_string<const N: usize>(v: &SVector<f64, N>) -> String {
 
     write!(result, "]").unwrap();
     result
-}
-
-#[cfg(test)]
-mod test {
-    use nalgebra::{vector, SVector};
-
-    use super::svector_to_array;
-
-    #[test]
-    fn convert_nonempty_svector_to_array() {
-        let v = SVector::<f64, 20>::from_fn(|_, _| 0.5);
-        let arr = svector_to_array(v);
-
-        assert!(
-            v.iter().zip(arr.iter()).all(|(a, b)| a == b),
-            "Not all elements are equal?"
-        )
-    }
-
-    #[test]
-    fn convert_single_element_svector_to_array() {
-        let v = vector![0.5];
-        let arr = svector_to_array(v);
-
-        assert!(
-            v.iter().zip(arr.iter()).all(|(a, b)| a == b),
-            "Not all elements are equal?"
-        )
-    }
-
-    #[test]
-    fn convert_empty_svector_to_array() {
-        let v = vector![];
-        let arr = svector_to_array(v);
-        assert!(arr.is_empty(), "Not zero?");
-    }
 }
