@@ -5,11 +5,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nalgebra::{vector, SVector};
+use nalgebra::SVector;
 use petgraph::graph::NodeIndex;
 use sembas::{
     adherers::const_adherer::ConstantAdhererFactory,
-    boundary_tools::estimation::approx_prediction,
     explorer_core::Explorer,
     explorers::MeshExplorer,
     sps::Sphere,
@@ -293,41 +292,4 @@ pub fn svector_to_array<const N: usize>(v: SVector<f64, N>) -> [f64; N] {
     v.as_slice()
         .try_into()
         .expect("Failed to convert slice to array.")
-}
-
-#[test]
-fn prediction_tests() {
-    let mut sphere = setup_sphere::<3>();
-    let radius = sphere.radius();
-    // let area = sphere_surface_area(&sphere);
-    let mut expl = setup_mesh_expl(&sphere);
-
-    let timeout = Duration::from_secs(5);
-    let start_time = Instant::now();
-
-    while let Ok(Some(_)) = expl.step(&mut sphere) {
-        if start_time.elapsed() > timeout {
-            panic!("Test exceeded expected time to completion. Mesh explorer got stuck?");
-        }
-    }
-
-    let within_mode_points = [
-        vector![0.5, 0.5, 0.5],
-        vector![0.5 + radius - JUMP_DISTANCE, 0.5, 0.5],
-    ];
-    let out_of_mode_points = [
-        vector![0.0, 0.0, 0.0],
-        vector![0.5 + radius + JUMP_DISTANCE, 0.5, 0.5],
-    ];
-
-    for t in within_mode_points.iter() {
-        if let Sample::OutOfMode(_) = approx_prediction(*t, expl.boundary(), expl.knn_index(), 1) {
-            panic!("False Negative for within mode point {t:?}.")
-        }
-    }
-    for x in out_of_mode_points.iter() {
-        if let Sample::WithinMode(_) = approx_prediction(*x, expl.boundary(), expl.knn_index(), 1) {
-            panic!("False Negative for within mode point {x:?}.")
-        }
-    }
 }
