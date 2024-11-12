@@ -104,6 +104,9 @@ fn volume_mc() {
 
     let timeout = Duration::from_secs(5);
     let start_time = Instant::now();
+    if start_time.elapsed() > timeout {
+        panic!("Test exceeded expected time to completion. Mesh explorer got stuck?");
+    }
 
     loop {
         if let Ok(None) = expl.step(&mut sphere) {
@@ -139,15 +142,24 @@ fn inscribed_sphere_has_no_distinct_volume() {
 
     let mut expl1 = setup_mesh_expl_sphere(&sphere);
     let mut expl2 = setup_mesh_expl_sphere(&inner_sphere);
+    let start_time = Instant::now();
+    let timeout = Duration::from_secs(5);
 
     loop {
         if let Ok(None) = expl1.step(&mut sphere) {
             break;
         }
+        if start_time.elapsed() > timeout {
+            panic!("Test exceeded expected time to completion. Mesh explorer got stuck?");
+        }
     }
+    let start_time = Instant::now();
     loop {
         if let Ok(None) = expl2.step(&mut inner_sphere) {
             break;
+        }
+        if start_time.elapsed() > timeout {
+            panic!("Test exceeded expected time to completion. Mesh explorer got stuck?");
         }
     }
 
