@@ -70,10 +70,10 @@ class BayesianLinear(nn.Module):
 class BayesianNN(nn.Module):
     "The full BNN which models the distribution of solutions for a 2D function."
 
-    def __init__(self):
+    def __init__(self, in_features: int, out_features: int, width: int):
         super(BayesianNN, self).__init__()
-        self.bayesian_layer1 = BayesianLinear(2, 50)  # 2 inputs (a, b), 50 hidden units
-        self.bayesian_layer2 = BayesianLinear(50, 1)  # 50 hidden units, 1 output (y)
+        self.bayesian_layer1 = BayesianLinear(in_features, width)
+        self.bayesian_layer2 = BayesianLinear(width, out_features)
 
     def forward(self, x):
         x = torch.relu(self.bayesian_layer1(x))

@@ -125,9 +125,9 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
 
 
-def train_and_save(dataset: FutData, path: str, model_name: str):
+def train_and_save(dataset: FutData, path: str, model_name: str, width=50):
     "Trains a BNN using @dataset, and saves it under '@path/@model_name'"
-    bnn = BayesianNN()
+    bnn = BayesianNN(dataset.inputs.shape[1], dataset.targets.shape[1], width)
 
     optimizer = optim.Adam(bnn.parameters(), lr=0.01)
 
