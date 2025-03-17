@@ -3,36 +3,23 @@ Managing the inputs and labels for the function under test.
 """
 
 import numpy as np
-from sklearn.discriminant_analysis import StandardScaler
 import torch
+import pandas as pd
+from sklearn.discriminant_analysis import StandardScaler
 
 from torch import Tensor
 from torch.utils.data import Dataset
 
 
-def f(a: Tensor, b: Tensor) -> Tensor:
+def simple_2d_regr(a: Tensor, b: Tensor) -> Tensor:
     # f(a, b) = \frac{1}{5}a^{2}-\frac{1}{10}b^{3}
     return (1 / 5 * a**2) - (1 / 10 * b**3)
 
 
 class FutData(Dataset):
-    """
-    Manages the training data for the simple function @f. Includes properties for
-    standardized and unstandardized input and output data. Used in conjunction with
-    pytorch's DataLoader to manage creating training batches.
-    """
-
-    def __init__(self, data_size):
-        root = int(np.sqrt(data_size))
-        self.data_size = root**2
-        if self.data_size != data_size:
-            print(f"Truncated datasize to be a valid square: {self.data_size}")
-
-        self.a = torch.linspace(-6, 6, root)
-        self.b = torch.linspace(-6, 6, root)
-
-        self.inputs = torch.cartesian_prod(self.a, self.b)
-        self.targets = f(*self.inputs.T).reshape(-1, 1)
+    def __init__(self, inputs: Tensor, targets: Tensor):
+        self.inputs = inputs
+        self.targets = targets
 
         self.input_scaler = StandardScaler()
         self.target_scaler = StandardScaler()
@@ -67,14 +54,6 @@ class FutData(Dataset):
         "Non-standardized labels"
         return self.target_scaler.inverse_transform(self.targets)
 
-    def transform_request(self, x: Tensor) -> Tensor:
-        "Transforms request from SEMBAS to the input domain of a model for @f"
-        return self.input_min + x * (self.input_max - self.input_min)
-
-    def inverse_transform_request(self, x: Tensor) -> Tensor:
-        "Transforms from input domain to SEMBAS request domain (i.e. normalized domain)"
-        return (x - self.input_min) / (self.input_max - self.input_min)
-
     def __len__(self):
         return self.data_size
 
@@ -89,3 +68,34 @@ class FutData(Dataset):
         # Used for unpacking. e.g. x, y = futData
         yield self.inputs
         yield self.targets
+
+    def transform_request(self, x: Tensor) -> Tensor:
+        "Transforms request from SEMBAS to the input domain of a model for @f"
+        return self.input_min + x * (self.input_max - self.input_min)
+
+    def inverse_transform_request(self, x: Tensor) -> Tensor:
+        "Transforms from input domain to SEMBAS request domain (i.e. normalized domain)"
+        return (x - self.input_min) / (self.input_max - self.input_min)
+
+
+class Simple2DRegrData(FutData):
+    """
+    Manages the training data for the simple function @f. Includes properties for
+    standardized and unstandardized input and output data. Used in conjunction with
+    pytorch's DataLoader to manage creating training batches.
+    """
+
+    def __init__(self, data_size):
+        root = int(np.sqrt(data_size))
+        self.data_size = root**2
+        if self.data_size != data_size:
+            print(f"Truncated datasize to be a valid square: {self.data_size}")
+
+        self.a = torch.linspace(-6, 6, root)
+        self.b = torch.linspace(-6, 6, root)
+
+        super().__init__(
+            torch.cartesian_prod(self.a, self.b),
+            simple_2d_regr(*self.inputs.T).reshape(-1, 1),
+        )
+

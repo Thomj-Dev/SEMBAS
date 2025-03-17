@@ -173,7 +173,7 @@ def classify_validity(network: Module, dataset: FutData, x: Tensor):
     return (
         np.power(
             network(model_x).squeeze().detach().numpy()
-            - dataset.target_scaler.transform(f(*true_x.T).reshape(1, -1)),
+            - dataset.target_scaler.transform(simple_2d_regr(*true_x.T).reshape(1, -1)),
             2.0,
         )
         < THRESHOLD
