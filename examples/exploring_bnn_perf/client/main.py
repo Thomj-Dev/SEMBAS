@@ -240,6 +240,7 @@ def get_mode(args: argparse.Namespace) -> str:
 
 
 def main(dataset_size: int = 2**10):
+    global THRESHOLD
     import os
 
     dataset = FutData(dataset_size)
