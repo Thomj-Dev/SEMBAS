@@ -51,6 +51,16 @@ def get_args() -> argparse.Namespace:
     )
 
     mode.add_argument(
+        "--experiment",
+        default="simple",
+        help=(
+            "Selects which experiment to run:\n"
+            "simple - A simple 2D regression problem for visualization.\n"
+            "complex - An 8 dimensional regression problem.\n"
+        ),
+    )
+
+    mode.add_argument(
         "--explore",
         "-x",
         action="store_true",
@@ -243,8 +253,13 @@ def main(dataset_size: int = 2**10):
     global THRESHOLD
     import os
 
-    dataset = FutData(dataset_size)
     args = get_args()
+
+    if args.experiment == "simple":
+        dataset = Simple2DRegrData(dataset_size)
+    else:
+        dataset = HighDimensionalRegrData()
+
     THRESHOLD = args.threshold
 
     pre_trained_exists = os.path.isfile(f"{args.model_path}/{args.model_name}")
