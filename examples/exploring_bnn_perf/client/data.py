@@ -99,3 +99,49 @@ class Simple2DRegrData(FutData):
             simple_2d_regr(*self.inputs.T).reshape(-1, 1),
         )
 
+
+class RetailRegressionData(FutData):
+    """
+    Requires Online Retail II dataset to be in the specified folder.
+    This data is for predicting volume of sales from historical data.
+    """
+
+    def __init__(self, data_path: str, stock_code="85048"):
+        """
+        @data_path : The path to the Kaggle data, must be downloaded from
+            https://www.kaggle.com/datasets/mashlyn/online-retail-ii-uci
+        @stock_code : The ID of the product to model.
+        """
+        try:
+            self.raw_data = pd.read_csv(data_path)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Could not find file as {data_path}. Be sure to download data from "
+                "https://www.kaggle.com/datasets/mashlyn/online-retail-ii-uci"
+            )
+        self.raw_data = self.raw_data.groupby(
+            ["date", "StockCode"], as_index=False
+        ).agg(
+            volume=("Quantity", "sum"),
+            price=("Price", "mean"),
+        )
+        # Cosine encoding ensures weekends are similar in value.
+        # 1 - cos means we are measuring distance from weekend, makes it human readable
+        self.raw_data["weekday"] = 1 - np.cos(
+            pd.to_datetime(self.raw_data["date"]).dt.dayofweek / 6 * np.pi
+        )
+        # d/dx (1-cos) = sin, velocity to/from weekend. Sign is + when going away from
+        # weekend and towards wednesday, and - when going away from wednesday to weekend.
+        self.raw_data["derivative"] = np.sign(
+            np.sin(pd.to_datetime(self.raw_data["date"]).dt.dayofweek / 6 * np.pi)
+        )
+        self.raw_data["day"] = pd.to_datetime(self.raw_data["date"]).dt.day
+        self.raw_data["month"] = pd.to_datetime(self.raw_data["date"]).dt.month
+        self.raw_data["year"] = pd.to_datetime(self.raw_data["date"]).dt.year
+
+        super().__init__(
+            torch.tensor(
+                self.raw_data[["day", "month", "year", "derivative", "price"]]
+            ).numpy(),
+            torch.tensor(self.raw_data[["volume"]]).numpy(),
+        )
