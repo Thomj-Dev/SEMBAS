@@ -31,6 +31,8 @@ class FutData(Dataset):
             self.target_scaler.fit_transform(self.targets), dtype=torch.float32
         )
 
+        self.data_size = self.inputs.shape[0]
+
         self.input_min = self.inputs_std.min().item()
         self.input_max = self.inputs_std.max().item()
 
