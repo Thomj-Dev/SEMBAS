@@ -135,11 +135,11 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
 
 
-def train_and_save(dataset: FutData, path: str, model_name: str, width=50):
+def train_and_save(dataset: FutData, path: str, model_name: str, width=50, lr=0.01):
     "Trains a BNN using @dataset, and saves it under '@path/@model_name'"
     bnn = BayesianNN(dataset.inputs.shape[1], dataset.targets.shape[1], width)
 
-    optimizer = optim.Adam(bnn.parameters(), lr=0.01)
+    optimizer = optim.Adam(bnn.parameters(), lr=lr)
 
     test_history, train_history = train_bnn(bnn, optimizer, dataset, epochs=2)
     os.makedirs(path, exist_ok=True)
@@ -280,7 +280,10 @@ def main(dataset_size: int = 2**10):
     if do_train:
         print("Generating and training model...")
         test_history, train_history = train_and_save(
-            dataset, args.model_path, args.model_name
+            dataset,
+            args.model_path,
+            args.model_name,
+            lr=0.01 if args.experiment == "simple" else 0.05,
         )
 
         if graphics is not None:
