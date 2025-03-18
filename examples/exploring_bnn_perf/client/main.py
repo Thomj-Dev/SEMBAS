@@ -52,6 +52,13 @@ def get_args() -> argparse.Namespace:
     )
 
     mode.add_argument(
+        "--epochs",
+        default=2,
+        help="The number of epochs to train with. Only relevant if --train is raised.",
+        type=int,
+    )
+
+    mode.add_argument(
         "--experiment",
         default="simple",
         help=(
@@ -106,7 +113,7 @@ def get_args() -> argparse.Namespace:
         default=1000,
         help=(
             "The number of networks to explore. "
-            "Doesn't do anything for mode --train.",
+            "Doesn't do anything for mode --train."
         ),
     )
     parser.add_argument(
@@ -136,22 +143,29 @@ if __name__ == "__main__":
         import matplotlib.pyplot as plt
 
 
-def train_and_save(dataset: FutData, path: str, model_name: str, width=50, lr=0.01):
+def train_and_save(
+    dataset: FutData, path: str, model_name: str, width=126, epochs=2, lr=0.01
+):
     "Trains a BNN using @dataset, and saves it under '@path/@model_name'"
     bnn = BayesianNN(dataset.inputs.shape[1], dataset.targets.shape[1], width)
 
     optimizer = optim.Adam(bnn.parameters(), lr=lr)
 
-    test_history, train_history = train_bnn(bnn, optimizer, dataset, epochs=2)
+    test_history, train_history = train_bnn(bnn, optimizer, dataset, epochs=epochs)
     os.makedirs(path, exist_ok=True)
     torch.save(bnn.state_dict(), f"{path}/{model_name}")
     return test_history, train_history
 
 
-def load_bnn(path: str):
+def load_bnn(path: str, experiment: str, width=126):
     "If a BNN exists under @path, will load and return the BNN model."
     state = torch.load(path, weights_only=True)
-    model = BayesianNN()
+
+    if experiment == "simple":
+        model = BayesianNN(2, 1, width)
+    else:
+        model = BayesianNN(8, 1, width)
+
     model.load_state_dict(state)
     return model
 
@@ -203,8 +217,8 @@ def load_and_explore(args: argparse.Namespace, dataset: FutData, sample_classifi
     (e.g. adding a 'next' signal or similar).
     """
 
-    bnn = load_bnn(f"{args.model_path}/{args.model_name}")
-    NDIM = 2
+    bnn = load_bnn(f"{args.model_path}/{args.model_name}", args.experiment.lower())
+    NDIM = 2 if args.experiment.lower() == "simple" else 8
 
     os.makedirs(f"{args.model_path}/ensemble", exist_ok=True)
 
@@ -256,10 +270,14 @@ def main(dataset_size: int = 2**10):
 
     args = get_args()
 
-    if args.experiment == "simple":
+    if args.experiment.lower() == "simple":
         dataset = Simple2DRegrData(dataset_size)
-    else:
+    elif args.experiment.lower() == "complex":
         dataset = HighDimensionalRegrData()
+    else:
+        raise ValueError(
+            f"Invalid --experiment specified. Must be simple or complex but got {args.expeirment.lower()}"
+        )
 
     THRESHOLD = args.threshold
 
@@ -284,6 +302,7 @@ def main(dataset_size: int = 2**10):
             dataset,
             args.model_path,
             args.model_name,
+            epochs=args.epochs,
             lr=0.01 if args.experiment == "simple" else 0.05,
         )
 
@@ -335,4 +354,4 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
+    main()
