@@ -96,9 +96,11 @@ class Simple2DRegrData(FutData):
         self.a = torch.linspace(-6, 6, root)
         self.b = torch.linspace(-6, 6, root)
 
+        inputs = torch.cartesian_prod(self.a, self.b)
+
         super().__init__(
-            torch.cartesian_prod(self.a, self.b),
-            simple_2d_regr(*self.inputs.T).reshape(-1, 1),
+            inputs,
+            simple_2d_regr(*inputs.T).reshape(-1, 1),
         )
 
 
