@@ -73,10 +73,12 @@ class BayesianNN(nn.Module):
     def __init__(self, in_features: int, out_features: int, width: int):
         super(BayesianNN, self).__init__()
         self.bayesian_layer1 = BayesianLinear(in_features, width)
+        self.bayesian_layerh1 = BayesianLinear(width, width)
         self.bayesian_layer2 = BayesianLinear(width, out_features)
 
     def forward(self, x):
         x = torch.relu(self.bayesian_layer1(x))
+        x = torch.relu(self.bayesian_layerh1(x))
         return self.bayesian_layer2(x)
 
     def sample_network(self) -> nn.Module:
@@ -110,8 +112,8 @@ def train_bnn(model, optimizer, dataset, kl_weight=1e-6, epochs=1):
 
     loader = DataLoader(train_data, 32, True)
 
+    model.train()
     for epoch in range(epochs):
-        model.train()
         optimizer.zero_grad()
 
         for i, batch in enumerate(loader):
