@@ -102,6 +102,30 @@ class Simple2DRegrData(FutData):
         )
 
 
+class HighDimensionalRegrData(FutData):
+
+    def __init__(self, path: str = ".data/california_housing.csv"):
+        from sklearn.datasets import fetch_california_housing
+
+        self.data: pd.DateOffset = fetch_california_housing(as_frame=True).frame
+
+        super().__init__(
+            self.data[
+                [
+                    "MedInc",
+                    "HouseAge",
+                    "AveRooms",
+                    "AveBedrms",
+                    "Population",
+                    "AveOccup",
+                    "Latitude",
+                    "Longitude",
+                ]
+            ],
+            self.data[["MedHouseVal"]],
+        )
+
+
 class RetailRegressionData(FutData):
     """
     Requires Online Retail II dataset to be in the specified folder.
