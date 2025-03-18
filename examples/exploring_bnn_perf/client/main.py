@@ -5,6 +5,7 @@ This script depends on:
 * sklearn
 * matplotlib
 * rtree (for analysis)
+* scikit-learn (for high-dimensional regression example)
 """
 
 import numpy as np
@@ -299,5 +300,39 @@ def main(dataset_size: int = 2**10):
         print("Exploration complete.")
 
 
+def test():
+    dataset = HighDimensionalRegrData()
+    bnn = BayesianNN(dataset.inputs.shape[1], dataset.targets.shape[1], 126)
+
+    optimizer = optim.Adam(bnn.parameters(), lr=0.05)
+
+    test_history, train_history = train_bnn(
+        bnn, optimizer, dataset, kl_weight=1e-5, epochs=10
+    )
+
+    plt.plot(np.arange(len(test_history)), test_history)
+    plt.show()
+
+    net = bnn.sample_network()
+
+    yhat = net(dataset.inputs).detach()
+    y = dataset.targets
+
+    loss: Tensor = (yhat - y) ** 2
+
+    print("Removed", len(loss[loss > 10000]), "entries")
+    print("Below threshold", len(loss[loss < 50]) / len(loss), "entries")
+    print("Median loss", loss.median())
+    print("Below threshold", len(loss[loss <= 1]) / len(loss), r"% of entries")
+    loss = loss[loss <= 10000]
+
+    print(loss.shape)
+    # print(dataset.inputs.shape, yhat.shape, y.shape)
+    print(loss.min(), loss.max(), loss.mean())
+
+    plt.plot(np.arange(len(loss)), loss)
+    plt.show()
+
+
 if __name__ == "__main__":
-    main()
+    test()
