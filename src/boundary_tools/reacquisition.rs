@@ -24,6 +24,10 @@ where
     let init_cls = prev_sample.class();
 
     let s = (if init_cls { 1.0 } else { -1.0 }) * max_err * hs.n;
+    if !domain.contains(&(prev_sample.into_inner() + s)) {
+        return Ok(None);
+    }
+
     let mut sample = classifier.classify(prev_sample.into_inner() + s)?;
 
     let mut i = 0;
