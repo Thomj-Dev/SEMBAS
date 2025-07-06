@@ -53,6 +53,10 @@ impl<const N: usize> SembasSession<N> {
         self.phase = phase.to_string();
     }
 
+    pub fn state(&self) -> SessionState {
+        self.state
+    }
+
     fn send_phase(&mut self) -> io::Result<()> {
         self.classifier.send_msg(&self.phase)
     }
@@ -61,12 +65,17 @@ impl<const N: usize> SembasSession<N> {
     /// received, None will be returned. None indicates that the client is waiting for
     /// a new request.
     pub fn expect_msg(&mut self) -> io::Result<Option<String>> {
-        assert!(
-            matches!(self.state, SessionState::Messaging),
-            "Must be in messaging state to expect messages! State: {:?}",
-            self.state
-        );
+        match self.state {
+            SessionState::Messaging => self.receive_msg(),
+            SessionState::Incomplete => Ok(None),
+            SessionState::Requesting => panic!(
+                "Must be in messaging state to expect messages! State: {:?}",
+                self.state
+            ),
+        }
+    }
 
+    fn receive_msg(&mut self) -> io::Result<Option<String>> {
         self.send_phase()?;
 
         let msg = self.classifier.receive_msg()?;
