@@ -84,7 +84,14 @@ where
         let result = reacquire_hs_incremental(classifier, hs, domain, max_err, samples_per_hs)?;
         new_boundary.push(result);
 
-        displacements.push(result.map(|new_hs| (new_hs.b - hs.b).norm()));
+        displacements.push(result.map(|new_hs| {
+            let s = new_hs.b - hs.b;
+            if s.dot(&new_hs.n) > 0.0 {
+                s.norm()
+            } else {
+                -s.norm()
+            }
+        }));
     }
 
     Ok((new_boundary, displacements))
