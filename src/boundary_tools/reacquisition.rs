@@ -24,6 +24,10 @@ where
     let init_cls = prev_sample.class();
 
     let s = (if init_cls { 1.0 } else { -1.0 }) * max_err * hs.n;
+    if !domain.contains(&(prev_sample.into_inner() + s)) {
+        return Ok(None);
+    }
+
     let mut sample = classifier.classify(prev_sample.into_inner() + s)?;
 
     let mut i = 0;
@@ -80,7 +84,14 @@ where
         let result = reacquire_hs_incremental(classifier, hs, domain, max_err, samples_per_hs)?;
         new_boundary.push(result);
 
-        displacements.push(result.map(|new_hs| (new_hs.b - hs.b).norm()));
+        displacements.push(result.map(|new_hs| {
+            let s = new_hs.b - hs.b;
+            if s.dot(&new_hs.n) > 0.0 {
+                s.norm()
+            } else {
+                -s.norm()
+            }
+        }));
     }
 
     Ok((new_boundary, displacements))
