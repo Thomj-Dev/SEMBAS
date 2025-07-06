@@ -2,10 +2,9 @@ use std::{any::type_name, collections::HashMap};
 
 use crate::{
     adherer_core::{Adherer, AdhererFactory, AdhererState},
-    boundary_tools::get_rtree_from_boundary,
     explorer_core::Explorer,
     extensions::Queue,
-    prelude::{report::ExplorationStatus, KnnNode, NodeID},
+    prelude::{report::ExplorationStatus, BoundaryRTree, KnnNode, NodeID},
     structs::{backprop::Backpropagation, Classifier, Halfspace, Result, Sample, Span},
     utils::array_distance,
 };
@@ -30,6 +29,36 @@ pub struct MeshExplorer<const N: usize, F: AdhererFactory<N>> {
 }
 
 impl<const N: usize, F: AdhererFactory<N>> MeshExplorer<N, F> {
+    pub fn new_with_boundary(
+        d: f64,
+        boundary: Vec<Halfspace<N>>,
+        margin: f64,
+        adherer_f: F,
+    ) -> Self {
+        let basis_vectors = OMatrix::<f64, Const<N>, Const<N>>::identity();
+        let path_queue = vec![];
+        let current_parent = 0;
+        let tree = Graph::new();
+        let knn_index = RTree::new();
+
+        let mut exp = MeshExplorer {
+            d,
+            boundary: vec![],
+            margin,
+            basis_vectors,
+            path_queue,
+            current_parent,
+            tree,
+            knn_index,
+            adherer: None,
+            adherer_f,
+        };
+
+        exp.load_boundary(boundary);
+
+        exp
+    }
+
     /// Creates a MeshExplorer instance.
     /// ## Arguments
     /// * d: The jump distance between boundary points. Describes how far apart the
@@ -219,24 +248,24 @@ impl<const N: usize, F: AdhererFactory<N>> Explorer<N, F> for MeshExplorer<N, F>
     ///          approach to developing the graph.
     fn load_boundary(&mut self, boundary: Vec<Halfspace<N>>) {
         assert!(!boundary.is_empty(), "Boundary must be non-empty!");
-        self.knn_index = get_rtree_from_boundary(&boundary);
+        // self.knn_index = (&boundary);
+        self.knn_index = BoundaryRTree::new();
+        self.tree = Graph::new();
         self.adherer = None;
         self.path_queue = vec![];
+        self.current_parent = 0;
+        self.boundary = vec![];
 
-        for hs in boundary.iter() {
-            if self.path_queue.is_empty() {
-                self.add_child(*hs, None);
-                continue;
-            }
-
-            if let Some(neighbor) = self.knn_index.nearest_neighbor(&hs.b.into()) {
-                self.add_child(*hs, Some(NodeIndex::new(neighbor.data)));
+        for (i, hs) in boundary.into_iter().enumerate() {
+            self.boundary.push(hs.clone());
+            if i == 0 {
+                self.add_child(hs, None);
+            } else if let Some(neighbor) = self.knn_index.nearest_neighbor(&hs.b.into()) {
+                self.add_child(hs, Some(NodeIndex::new(neighbor.data)));
             } else {
-                panic!("Unexpected error while loading")
+                panic!("Unexpected empty KNN index while loading. Root not added?")
             }
         }
-
-        self.boundary = boundary;
     }
 }
 
