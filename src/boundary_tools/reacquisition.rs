@@ -1,4 +1,10 @@
-use crate::prelude::{Boundary, Classifier, Domain, Halfspace, Result, Sample};
+use crate::{
+    prelude::{
+        Boundary, BoundaryPair, Classifier, Domain, Halfspace, OutOfMode, Result, Sample,
+        WithinMode,
+    },
+    search::{binary_search_between, surfacing::binary_surface_search, SearchMode},
+};
 
 /// Acquires the EXACT boundary for a given outdated halfspace.
 ///
@@ -53,6 +59,169 @@ where
             }
         }
         _ => Ok(None),
+    }
+}
+
+/// Without jump distance
+/// 1. Find edge of domain
+/// 2. binary search between
+///
+/// With jump distance
+/// 1. Create next point by p + s, where |s| = jump distance
+/// 2. If p' falls outside of domain, map p' to domain edge
+/// 3. If p' results in a boundary pair, binary search between p and p'
+///    otherwise, repeat from (1)
+pub fn reacquire_hs_bs<const N: usize, C>(
+    classifier: &mut C,
+    hs: &Halfspace<N>,
+    domain: &Domain<N>,
+    max_err: f64,
+    max_samples: u32,
+) -> Result<Option<Halfspace<N>>>
+where
+    C: Classifier<N>,
+{
+    let b_sample = classifier.classify(*hs.b)?;
+    let new_b_direction = if b_sample.class() { hs.n } else { -hs.n };
+
+    let edge = domain.clip_vector(&(
+        hs.b + hs.n * domain.distance_to_edge(&hs.b, &new_b_direction)
+            .expect("Invalid out of bounds HS? Reacquiring a boundary assumes you know where the original boundary was, which cannot exist outside of domain")
+    ));
+    let edge_sample = classifier.classify(edge)?;
+
+    Ok(match (b_sample, edge_sample) {
+        (Sample::WithinMode(t0), Sample::WithinMode(t1)) => {
+            if let Some(nt0) =
+                binary_search_between(SearchMode::Full, false, max_samples, *t0, *t1, classifier)
+            {
+                Some(binary_surface_search(
+                    max_err,
+                    &BoundaryPair::new(t0, OutOfMode(nt0)),
+                    max_samples,
+                    classifier,
+                )?)
+            } else {
+                None
+            }
+        }
+        (Sample::OutOfMode(nt0), Sample::OutOfMode(nt1)) => {
+            if let Some(t0) =
+                binary_search_between(SearchMode::Full, true, max_samples, *nt0, *nt1, classifier)
+            {
+                Some(binary_surface_search(
+                    max_err,
+                    &BoundaryPair::new(WithinMode(t0), nt0),
+                    max_samples,
+                    classifier,
+                )?)
+            } else {
+                None
+            }
+        }
+        (Sample::WithinMode(t0), Sample::OutOfMode(nt0))
+        | (Sample::OutOfMode(nt0), Sample::WithinMode(t0)) => Some(binary_surface_search(
+            max_err,
+            &BoundaryPair::new(t0, nt0),
+            max_samples,
+            classifier,
+        )?),
+    })
+}
+
+/// Without jump distance
+/// 1. Find edge of domain
+/// 2. binary search between
+///
+/// With jump distance
+/// 1. Create next point by p + s, where |s| = jump distance
+/// 2. If p' falls outside of domain, map p' to domain edge
+/// 3. If p' results in a boundary pair, binary search between p and p'
+///    otherwise, repeat from (1)
+pub fn reacquire_hs_hybrid<const N: usize, C>(
+    classifier: &mut C,
+    hs: &Halfspace<N>,
+    domain: &Domain<N>,
+    jump_dist: f64,
+    max_err: f64,
+    max_samples: u32,
+) -> Result<Option<Halfspace<N>>>
+where
+    C: Classifier<N>,
+{
+    let b_sample = classifier.classify(*hs.b)?;
+    let new_b_direction = if b_sample.class() { hs.n } else { -hs.n };
+    let s = jump_dist * new_b_direction;
+
+    let mut prev_sample = b_sample;
+    let mut next_p = *prev_sample + s;
+
+    let bp = loop {
+        if domain.contains(&next_p) {
+            break None;
+        }
+        let next_sample = classifier.classify(next_p)?;
+
+        if next_sample.class() != b_sample.class() {
+            // pair found on next_p
+            break Some(
+                BoundaryPair::from_samples(prev_sample, next_sample)
+                    .expect("Next.class != b.class, yet not bound pair?"),
+            );
+        }
+
+        if let Some(p) = binary_search_between(
+            SearchMode::Full,
+            !b_sample.class(),
+            max_samples,
+            *prev_sample,
+            next_p,
+            classifier,
+        ) {
+            break Some(
+                BoundaryPair::from_samples(
+                    prev_sample,
+                    Sample::from_class(p, !prev_sample.class()),
+                )
+                .expect("Next.class != b.class, yet not bound pair?"),
+            );
+        }
+
+        prev_sample = next_sample;
+        next_p = *prev_sample + s;
+    };
+
+    let bp = if bp.is_none() && !domain.contains(&next_p) {
+        // final check by getting edge
+        let edge = domain.clip_vector(&next_p);
+        if let Some(p) = binary_search_between(
+            SearchMode::Full,
+            !b_sample.class(),
+            max_samples,
+            *prev_sample,
+            edge,
+            classifier,
+        ) {
+            Some(
+                BoundaryPair::from_samples(prev_sample, Sample::from_class(p, !b_sample.class()))
+                    .expect("Next.class != b.class, yet not bound pair?"),
+            )
+        } else {
+            None
+        }
+    } else {
+        bp
+    };
+
+    if let Some(bp) = bp {
+        Ok(Some(binary_surface_search(
+            max_err,
+            &bp,
+            max_samples,
+            classifier,
+        )?))
+    } else {
+        Ok(None)
     }
 }
 
