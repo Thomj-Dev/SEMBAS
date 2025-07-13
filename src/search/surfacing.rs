@@ -19,25 +19,21 @@ pub fn binary_surface_search<const N: usize, C: Classifier<N>>(
 ) -> Result<Halfspace<N>> {
     let mut p_t = b_pair.t().0;
     let mut p_x = b_pair.x().0;
-    let mut s = (p_x - p_t) / 2.0;
+    let mut s = p_x - p_t;
     let mut i = 0;
 
     while s.norm() > max_err && i < max_samples {
+        s = (p_x - p_t) / 2.0;
+        i += 1;
+
         match classifier.classify(p_t + s)? {
             Sample::WithinMode(_) => p_t += s,
             Sample::OutOfMode(_) => p_x -= s,
         }
-        // if classifier.classify(&(p_t + s))? {
-        //     p_t += s;
-        // } else {
-        //     p_x -= s;
-        // }
-
-        s = (p_x - p_t) / 2.0;
-        i += 1
     }
 
     if i >= max_samples && s.norm() > max_err {
+        println!("Norm: {}", s.norm());
         return Err(SamplingError::MaxSamplesExceeded);
     }
 
@@ -51,9 +47,10 @@ pub fn binary_surface_search<const N: usize, C: Classifier<N>>(
 
 #[cfg(all(test, feature = "sps"))]
 mod test_surfacer {
-    use nalgebra::SVector;
+    use nalgebra::{vector, SVector};
 
     use crate::{
+        prelude::FunctionClassifier,
         sps::Sphere,
         structs::{BoundaryPair, Classifier, Domain, OutOfMode, SamplingError, WithinMode},
     };
@@ -106,13 +103,13 @@ mod test_surfacer {
         let d = 0.05;
 
         // a little perturbed from the center
-        let mut t = SVector::from_fn(|_, _| 0.5);
+        let mut t: SVector<f64, D> = SVector::from_fn(|_, _| 0.5);
         t[D - 1] += 0.15;
         let t = WithinMode(t);
-        let mut x = SVector::from_fn(|_, _| 0.15);
+        let mut x: SVector<f64, D> = SVector::from_fn(|_, _| 0.15);
         x[0] += 0.3;
         let x = OutOfMode(x);
-        let max_samples = (DIAMETER / d).log2().ceil() as u32;
+        let max_samples = ((t - x).norm() / d).log2().ceil() as u32;
 
         let hs = binary_surface_search(d, &BoundaryPair::new(t, x), max_samples, &mut sphere)
             .expect("Failed to find boundary within the maximum number of samples ({max_samples})");
@@ -160,5 +157,35 @@ mod test_surfacer {
             SamplingError::MaxSamplesExceeded,
             "Unexpected error type? Got: {err:?}"
         )
+    }
+
+    #[test]
+    fn finds_boundary_within_max_dist() {
+        let max_err = 0.05;
+        let domain = Domain::<3>::normalized();
+        let mut classifier = FunctionClassifier::new(|x| {
+            if domain.contains(&x) {
+                Ok(x[0] < 0.75)
+            } else {
+                Err(SamplingError::OutOfBounds)
+            }
+        });
+
+        let result = binary_surface_search(
+            max_err,
+            &BoundaryPair::new(
+                WithinMode(vector![0.5, 0.5, 0.5]),
+                OutOfMode(vector![1.0, 0.5, 0.0]),
+            ),
+            20,
+            &mut classifier,
+        )
+        .expect("Got error when expecting results from BSS");
+
+        let dist = (result.b[0] - 0.75).abs();
+        assert!(
+            dist <= max_err,
+            "Got a distance from boundary greater than max dist: {dist} > {max_err}"
+        );
     }
 }
