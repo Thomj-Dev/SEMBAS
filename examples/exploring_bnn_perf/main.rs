@@ -87,7 +87,7 @@ fn evaluate<const N: usize>(
         true
     } else {
         let (inter_vol, b_vol, _other_vol) =
-            approx_mc_volume_intersection(&[(boundary, btree)], others, 100, 1, 1);
+            approx_mc_volume_intersection(&[(boundary, btree)], others, 100, 1, None, 1);
 
         inter_vol / (inter_vol + b_vol) < 0.2
     }

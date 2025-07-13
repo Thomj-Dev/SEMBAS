@@ -121,6 +121,7 @@ fn volume_mc() {
         &[(expl.boundary(), expl.knn_index())],
         1000,
         1,
+        None,
         1,
     );
 
@@ -157,6 +158,7 @@ fn inscribed_sphere_has_no_distinct_volume() {
         &[(expl2.boundary(), expl2.knn_index())],
         100,
         1,
+        None,
         1,
     );
 
@@ -198,6 +200,7 @@ fn intersecting_vol_results_are_in_correct_order() {
         &[(expl2.boundary(), expl2.knn_index())],
         1000,
         1,
+        None,
         1,
     );
 
