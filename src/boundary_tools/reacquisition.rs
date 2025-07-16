@@ -265,3 +265,273 @@ where
 
     Ok((new_boundary, displacements))
 }
+
+#[cfg(test)]
+mod reacquire_binary_search {
+    use nalgebra::vector;
+
+    use crate::{
+        boundary_tools::reacquisition::reacquire_hs_bs,
+        prelude::{Classifier, Domain, FunctionClassifier, Halfspace, WithinMode},
+    };
+
+    const MAX_ERR: f64 = 0.05;
+
+    const INITIAL_HS: Halfspace<3> = Halfspace {
+        b: WithinMode(vector![0.5, 0.5, 0.5]),
+        n: vector![1.0, 0.0, 0.0],
+    };
+
+    #[test]
+    fn if_no_boundary_and_all_nontarget_then_ok_none() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(false));
+
+        let result = reacquire_hs_bs(&mut classifier, &INITIAL_HS, &domain, MAX_ERR, max_samples)
+            .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_no_boundary_and_all_target_then_ok_none() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(true));
+
+        let result = reacquire_hs_bs(&mut classifier, &INITIAL_HS, &domain, MAX_ERR, max_samples)
+            .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_resources_exhausted_then_ok_none() {
+        let max_samples = 2;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(true));
+
+        let result = reacquire_hs_bs(&mut classifier, &INITIAL_HS, &domain, MAX_ERR, max_samples)
+            .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_smaller_boundary_then_ok_some() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|x| {
+            if domain.contains(&x) {
+                Ok(x[0] < 0.75)
+            } else {
+                Err(crate::prelude::SamplingError::OutOfBounds)
+            }
+        });
+
+        let result = reacquire_hs_bs(&mut classifier, &INITIAL_HS, &domain, MAX_ERR, max_samples)
+            .expect("Got error when expected result?");
+
+        if let Some(x) = result {
+            let dist = (x.b[0] - 0.75).abs();
+            assert!(
+                dist <= MAX_ERR,
+                "Reacquisition failed to produce the desired distance from boundary {dist} > {MAX_ERR}"
+            )
+        } else {
+            panic!("Got None when Some was expected for existent boundary?");
+        }
+    }
+
+    #[test]
+    fn if_bigger_boundary_then_ok_some() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|x| {
+            if domain.contains(&x) {
+                Ok(x[0] < 0.25)
+            } else {
+                Err(crate::prelude::SamplingError::OutOfBounds)
+            }
+        });
+
+        println!(
+            "init class: {}",
+            classifier.classify(*INITIAL_HS.b).unwrap().class()
+        );
+
+        let result = reacquire_hs_bs(&mut classifier, &INITIAL_HS, &domain, MAX_ERR, max_samples)
+            .expect("Got error when expected result?");
+
+        if let Some(x) = result {
+            println!("x: {x:?}");
+            let dist = (x.b[0] - 0.25).abs();
+            assert!(
+                dist <= MAX_ERR,
+                "Reacquisition failed to produce the desired distance from boundary {dist} > {MAX_ERR}"
+            )
+        } else {
+            panic!("Got None when Some was expected for existent boundary?");
+        }
+    }
+}
+
+#[cfg(test)]
+mod reacquire_incremental_search {
+    use nalgebra::vector;
+
+    use crate::{
+        boundary_tools::reacquisition::reacquire_hs_incremental,
+        prelude::{Classifier, Domain, FunctionClassifier, Halfspace, WithinMode},
+    };
+
+    const MAX_ERR: f64 = 0.05;
+
+    const INITIAL_HS: Halfspace<3> = Halfspace {
+        b: WithinMode(vector![0.5, 0.5, 0.5]),
+        n: vector![1.0, 0.0, 0.0],
+    };
+
+    #[test]
+    fn if_no_boundary_and_all_nontarget_then_ok_none() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(false));
+
+        let result = reacquire_hs_incremental(
+            &mut classifier,
+            &INITIAL_HS,
+            &domain,
+            MAX_ERR,
+            Some(max_samples),
+        )
+        .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_no_boundary_and_all_target_then_ok_none() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(true));
+
+        let result = reacquire_hs_incremental(
+            &mut classifier,
+            &INITIAL_HS,
+            &domain,
+            MAX_ERR,
+            Some(max_samples),
+        )
+        .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_resources_exhausted_then_ok_none() {
+        let max_samples = 2;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|_| Ok(true));
+
+        let result = reacquire_hs_incremental(
+            &mut classifier,
+            &INITIAL_HS,
+            &domain,
+            MAX_ERR,
+            Some(max_samples),
+        )
+        .expect("Got error when expected result?");
+
+        assert!(
+            result.is_none(),
+            "Got some when None was expected for non-existent boundary?"
+        );
+    }
+
+    #[test]
+    fn if_smaller_boundary_then_ok_some() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|x| {
+            if domain.contains(&x) {
+                Ok(x[0] < 0.75)
+            } else {
+                Err(crate::prelude::SamplingError::OutOfBounds)
+            }
+        });
+
+        let result = reacquire_hs_incremental(
+            &mut classifier,
+            &INITIAL_HS,
+            &domain,
+            MAX_ERR,
+            Some(max_samples),
+        )
+        .expect("Got error when expected result?");
+
+        if let Some(x) = result {
+            let dist = (x.b[0] - 0.75).abs();
+            assert!(
+                dist <= MAX_ERR,
+                "Reacquisition failed to produce the desired distance from boundary {dist} > {MAX_ERR}"
+            )
+        } else {
+            panic!("Got None when Some was expected for existent boundary?");
+        }
+    }
+
+    #[test]
+    fn if_bigger_boundary_then_ok_some() {
+        let max_samples = 20;
+        let domain = Domain::normalized();
+        let mut classifier = FunctionClassifier::new(|x| {
+            if domain.contains(&x) {
+                Ok(x[0] < 0.25)
+            } else {
+                Err(crate::prelude::SamplingError::OutOfBounds)
+            }
+        });
+
+        println!(
+            "init class: {}",
+            classifier.classify(*INITIAL_HS.b).unwrap().class()
+        );
+
+        let result = reacquire_hs_incremental(
+            &mut classifier,
+            &INITIAL_HS,
+            &domain,
+            MAX_ERR,
+            Some(max_samples),
+        )
+        .expect("Got error when expected result?");
+
+        if let Some(x) = result {
+            println!("x: {x:?}");
+            let dist = (x.b[0] - 0.25).abs();
+            assert!(
+                dist <= MAX_ERR,
+                "Reacquisition failed to produce the desired distance from boundary {dist} > {MAX_ERR}"
+            )
+        } else {
+            panic!("Got None when Some was expected for existent boundary?");
+        }
+    }
+}
