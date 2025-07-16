@@ -85,7 +85,7 @@ where
     let new_b_direction = if b_sample.class() { hs.n } else { -hs.n };
 
     let edge = domain.clip_vector(&(
-        hs.b + hs.n * domain.distance_to_edge(&hs.b, &new_b_direction)
+        hs.b + new_b_direction * domain.distance_to_edge(&hs.b, &new_b_direction)
             .expect("Invalid out of bounds HS? Reacquiring a boundary assumes you know where the original boundary was, which cannot exist outside of domain")
     ));
     let edge_sample = classifier.classify(edge)?;
