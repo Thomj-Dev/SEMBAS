@@ -266,6 +266,36 @@ where
     Ok((new_boundary, displacements))
 }
 
+pub fn reacquire_all_bs<const N: usize, C>(
+    classifier: &mut C,
+    boundary: &Boundary<N>,
+    domain: &Domain<N>,
+    max_err: f64,
+    samples_per_hs: u32,
+) -> Result<(Vec<Option<Halfspace<N>>>, Vec<Option<f64>>)>
+where
+    C: Classifier<N>,
+{
+    let mut new_boundary = vec![];
+    let mut displacements = vec![];
+
+    for hs in boundary {
+        let result = reacquire_hs_bs(classifier, hs, domain, max_err, samples_per_hs)?;
+        new_boundary.push(result);
+
+        displacements.push(result.map(|new_hs| {
+            let s = new_hs.b - hs.b;
+            if s.dot(&new_hs.n) > 0.0 {
+                s.norm()
+            } else {
+                -s.norm()
+            }
+        }));
+    }
+
+    Ok((new_boundary, displacements))
+}
+
 #[cfg(test)]
 mod reacquire_binary_search {
     use nalgebra::vector;
