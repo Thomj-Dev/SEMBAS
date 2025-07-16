@@ -172,6 +172,7 @@ pub fn approx_mc_volume<const N: usize>(
     group: &[(&Boundary<N>, &BoundaryRTree<N>)],
     n_samples: u32,
     n_neighbors: u32,
+    domain: Option<&Domain<N>>,
     seed: u64,
 ) -> f64 {
     let mut pc: Vec<SVector<f64, N>> = vec![]; //group1.iter().chain(group2).map(|(hs, _)| *hs.b).collect();
@@ -180,7 +181,8 @@ pub fn approx_mc_volume<const N: usize>(
         pc.append(&mut boundary.iter().map(|hs| *hs.b).collect());
     }
 
-    let mut mc = MonteCarloSearch::new(Domain::new_from_point_cloud(&pc), seed);
+    let domain = domain.cloned().unwrap_or(Domain::new_from_point_cloud(&pc));
+    let mut mc = MonteCarloSearch::new(domain, seed);
     let mut wm_count = 0;
 
     for _ in 0..n_samples {
@@ -215,10 +217,11 @@ pub fn approx_mc_volume<const N: usize>(
 /// The total volume is the sum of these voumes. The total volume of an envelop is
 /// the sum of its volume and the intersection volume.
 pub fn approx_mc_volume_intersection<const N: usize>(
-    group1: &[(&[Halfspace<N>], &BoundaryRTree<N>)],
-    group2: &[(&[Halfspace<N>], &BoundaryRTree<N>)],
+    group1: &[(&Boundary<N>, &BoundaryRTree<N>)],
+    group2: &[(&Boundary<N>, &BoundaryRTree<N>)],
     n_samples: u32,
     n_neighbors: u32,
+    domain: Option<&Domain<N>>,
     seed: u64,
 ) -> (f64, f64, f64) {
     let mut pc: Vec<SVector<f64, N>> = vec![]; //group1.iter().chain(group2).map(|(hs, _)| *hs.b).collect();
@@ -227,7 +230,8 @@ pub fn approx_mc_volume_intersection<const N: usize>(
         pc.append(&mut boundary.iter().map(|hs| *hs.b).collect());
     }
 
-    let mut mc = MonteCarloSearch::new(Domain::new_from_point_cloud(&pc), seed);
+    let domain = domain.cloned().unwrap_or(Domain::new_from_point_cloud(&pc));
+    let mut mc = MonteCarloSearch::new(domain, seed);
 
     let mut b1_only_count = 0;
     let mut b2_only_count = 0;

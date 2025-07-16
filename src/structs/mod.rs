@@ -206,6 +206,20 @@ impl<const N: usize> Domain<N> {
 
         Ok(t)
     }
+
+    pub fn clip_vector(&self, p: &SVector<f64, N>) -> SVector<f64, N> {
+        SVector::<f64, N>::from_iterator(self.low.iter().zip(self.high.iter()).zip(p.iter()).map(
+            |((li, hi), pi)| {
+                if pi < li {
+                    *li
+                } else if pi > hi {
+                    *hi
+                } else {
+                    *pi
+                }
+            },
+        ))
+    }
 }
 
 impl<const N: usize> fmt::Display for Span<N> {
@@ -366,5 +380,50 @@ mod domain_tests {
         let p = d.high();
 
         assert!(d.contains(p))
+    }
+
+    #[test]
+    fn clip_ensures_in_domain_for_vector_above_high() {
+        let d = Domain::<3>::new(vector![4.0, 2.5, 6.0], vector![1.0, 5.0, 3.5]);
+        let p = d.high() + vector![0.01, 0.01, 0.01];
+        let p = d.clip_vector(&p);
+
+        assert!(d.contains(&p))
+    }
+
+    #[test]
+    fn clip_ensures_in_domain_for_vector_below_low() {
+        let d = Domain::<3>::new(vector![4.0, 2.5, 6.0], vector![1.0, 5.0, 3.5]);
+        let p = d.low() - vector![0.01, 0.01, 0.01];
+        let p = d.clip_vector(&p);
+
+        assert!(d.contains(&p))
+    }
+
+    #[test]
+    fn clip_vector_below_low_equals_low() {
+        let d = Domain::<3>::new(vector![4.0, 2.5, 6.0], vector![1.0, 5.0, 3.5]);
+        let p = d.low() - vector![0.01, 0.01, 0.01];
+        let p = d.clip_vector(&p);
+
+        assert!(p == d.low)
+    }
+
+    #[test]
+    fn clip_vector_above_high_equals_high() {
+        let d = Domain::<3>::new(vector![4.0, 2.5, 6.0], vector![1.0, 5.0, 3.5]);
+        let p = d.high() + vector![0.01, 0.01, 0.01];
+        let p = d.clip_vector(&p);
+
+        assert!(p == d.high)
+    }
+
+    #[test]
+    fn clip_vector_keeps_in_domain_elements() {
+        let d = Domain::<3>::new(vector![4.0, 2.5, 6.0], vector![1.0, 5.0, 3.5]);
+        let p = d.high() + vector![0.01, -0.01, 0.01];
+        let p1 = d.clip_vector(&p);
+
+        assert!(p[1] == p1[1] && d.contains(&p1))
     }
 }
