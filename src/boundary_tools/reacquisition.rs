@@ -157,7 +157,7 @@ where
     let mut next_p = *prev_sample + s;
 
     let bp = loop {
-        if domain.contains(&next_p) {
+        if !domain.contains(&next_p) {
             break None;
         }
         let next_sample = classifier.classify(next_p)?;
