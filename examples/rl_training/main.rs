@@ -5,10 +5,9 @@ use std::{
     path::Path,
 };
 
-use nalgebra::vector;
 use sembas::{
     api::SembasSession,
-    boundary_tools::{estimation::approx_surface, reacquisition::reacquire_all_incremental},
+    boundary_tools::{estimation::approx_surface, reacquisition::reacquire_all_hybrid},
     prelude::{bs_adherer::BinarySearchAdhererFactory, *},
     search::{global_search::*, surfacing::binary_surface_search},
     structs::{
@@ -87,12 +86,13 @@ fn main() {
 
         println!("Reacquiring boundary");
         classifier.update_phase(MSG_REACQUIRE);
-        let (boundary_update, distances) = reacquire_all_incremental(
+        let (boundary_update, distances) = reacquire_all_hybrid(
             &mut classifier,
             expl.boundary(),
             &domain,
+            JUMP_DIST * 5.0,
             JUMP_DIST / 2.0,
-            None,
+            10,
         )
         .unwrap();
 
