@@ -1,7 +1,7 @@
 pub mod boundary;
 pub mod error;
 #[cfg(feature = "api")]
-pub mod messagse;
+pub mod messages;
 pub mod report;
 pub mod sampling;
 

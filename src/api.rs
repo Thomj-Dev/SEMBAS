@@ -1,4 +1,4 @@
-use crate::prelude::messagse::{MSG_CONTINUE, MSG_END, MSG_OK};
+use crate::prelude::messages::{MSG_CONTINUE, MSG_END, MSG_OK};
 use crate::prelude::{self, Sample};
 use crate::structs::SamplingError;
 use nalgebra::SVector;
