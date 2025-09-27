@@ -144,6 +144,7 @@ pub fn reacquire_hs_hybrid<const N: usize, C>(
     domain: &Domain<N>,
     jump_dist: f64,
     max_err: f64,
+    interim_samples: u32,
     max_samples: u32,
 ) -> Result<Option<Halfspace<N>>>
 where
@@ -173,7 +174,7 @@ where
         if let Some(p) = binary_search_between(
             SearchMode::Full,
             !b_sample.class(),
-            max_samples,
+            interim_samples,
             *prev_sample,
             next_p,
             classifier,
@@ -197,7 +198,7 @@ where
         if let Some(p) = binary_search_between(
             SearchMode::Full,
             !b_sample.class(),
-            max_samples,
+            interim_samples,
             *prev_sample,
             edge,
             classifier,
@@ -302,6 +303,7 @@ pub fn reacquire_all_hybrid<const N: usize, C>(
     domain: &Domain<N>,
     jump_dist: f64,
     max_err: f64,
+    interim_samples: u32,
     samples_per_hs: u32,
 ) -> Result<(Vec<Option<Halfspace<N>>>, Vec<Option<f64>>)>
 where
@@ -311,7 +313,7 @@ where
     let mut displacements = vec![];
 
     for hs in boundary {
-        let result = reacquire_hs_hybrid(classifier, hs, domain, jump_dist, max_err, samples_per_hs)?;
+        let result = reacquire_hs_hybrid(classifier, hs, domain, jump_dist, max_err, interim_samples, samples_per_hs)?;
         new_boundary.push(result);
 
         displacements.push(result.map(|new_hs| {
@@ -631,6 +633,7 @@ mod reacquire_hybrid_search {
             &domain,
             JUMP_DIST,
             MAX_ERR,
+            1,
             max_samples,
         )
         .expect("Got error when expected result?");
@@ -653,6 +656,7 @@ mod reacquire_hybrid_search {
             &domain,
             JUMP_DIST,
             MAX_ERR,
+            1,
             max_samples,
         )
         .expect("Got error when expected result?");
@@ -675,6 +679,7 @@ mod reacquire_hybrid_search {
             &domain,
             JUMP_DIST,
             MAX_ERR,
+            1,
             max_samples,
         )
         .expect("Got error when expected result?");
@@ -703,6 +708,7 @@ mod reacquire_hybrid_search {
             &domain,
             JUMP_DIST,
             MAX_ERR,
+            1,
             max_samples,
         )
         .expect("Got error when expected result?");
@@ -741,6 +747,7 @@ mod reacquire_hybrid_search {
             &domain,
             JUMP_DIST,
             MAX_ERR,
+            1,
             max_samples,
         )
         .expect("Got error when expected result?");

@@ -29,3 +29,20 @@ Precondition: Some sampling process is in progress.
 2. Client: Receives sample
 3. Client: Sample out of bounds, sends OOB flag to Server.
 4. Server: Continues as normal.
+
+
+# Training
+
+## Setup Process
+1. Global search to find initial boundary pair
+2. Surface search to acquire the boundary
+3. Root refinement - improving surface direction estimation to improve efficiency
+
+## Exploration
+Exploration is too complicated to go into detail, but the idea is simple: explore the surface, starting at a root, until early-stopping criteria is met or no more surface remains.
+
+Edge cases:
+1. Ran out of boundary
+
+## Training
+Once we have sampled X number of boundary points (/ samples in general), we will train the system on these examples. This will update the FUT, resulting in a new boundary.

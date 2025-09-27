@@ -297,7 +297,10 @@ impl<const N: usize> Classifier<N> for RemoteClassifier<N> {
         if !self.domain.contains(&p) {
             return Err(SamplingError::OutOfBounds);
         }
-
+        if p[0].is_nan() {
+            println!("NAN?");
+            return Err(SamplingError::OutOfBounds);
+        }
         // Send request
         let bytes: &[u8] = bytemuck::cast_slice(p.as_slice());
         self.stream.write_all(bytes)?;

@@ -17,9 +17,9 @@ use sembas::{
 };
 use serde::{Deserialize, Serialize};
 
-const NDIM: usize = 2;
+const NDIM: usize = 4;
 // const JUMP_DIST: f64 = 0.075;
-const JUMP_DIST: f64 = 0.02;
+const JUMP_DIST: f64 = 0.025;
 const ANGLE: f64 = 0.3;
 const MSG_REACQUIRE: &str = "REACQ";
 
@@ -29,19 +29,28 @@ struct BoundaryData {
     boundary_surface: Vec<Vec<f64>>,
 }
 
+//
 fn main() {
-    let domain = Domain::<NDIM>::normalized();
     // let mut classifier = RemoteClassifier::<NDIM>::bind("127.0.0.1:2000".to_string()).unwrap();
     let mut classifier =
         SembasSession::<NDIM>::bind("127.0.0.1:2000".to_string(), MSG_PHASE_GLOBAL_SEARCH).unwrap();
+    let mut i = 0;
+    loop {
+        let root = get_new_root(&mut classifier, i);
+        // explore_and_expand(&mut classifier, root);
+        explore(&mut classifier, root);
+        i += 1;
+    }
+}
 
+fn get_new_root<const N: usize>(classifier: &mut SembasSession<N>, seed: u64) -> Halfspace<N> {
     println!("Finding initial pair...");
     // classifier
-    // classifier.send_msg(MSG_PHASE_GLOBAL_SEARCH).unwrap();
-    let bp = find_initial_boundary_pair(&mut classifier, 1000).unwrap();
+    classifier.update_phase(MSG_PHASE_GLOBAL_SEARCH);
+    let bp = find_initial_boundary_pair(classifier, 1000, seed).unwrap();
 
     // let roots: Vec<Halfspace<NDIM>> =
-    //     find_chords(JUMP_DIST * 0.25, &bp, NDIM, &domain, &mut classifier)
+    //     find_chords(JUMP_DIST * 0.25, &bp, NDIM, &domain, classifier)
     //         .unwrap()
     //         .into_iter()
     //         .flat_map(|(a, b)| vec![a, b])
@@ -52,13 +61,24 @@ fn main() {
     println!("Establishing roots...");
     classifier.update_phase(MSG_PHASE_SURFACE_SEARCH);
 
-    let root = binary_surface_search(JUMP_DIST, &bp, 100, &mut classifier).unwrap();
+    let root = binary_surface_search(JUMP_DIST, &bp, 100, classifier).unwrap();
 
     let adh_f = BinarySearchAdhererFactory::new(PI / 2.0, 3);
-    let mut root = match approx_surface(JUMP_DIST, root, &adh_f, &mut classifier) {
+
+    return match approx_surface(JUMP_DIST, root, &adh_f, classifier) {
         Ok((hs, _, _)) => hs,
         Err(_) => root,
     };
+}
+
+/// Given a starting half space, it continuously explores the boundary. It will then
+/// be trained on that boundary (mutating the boundary) at which point it will reac-
+/// quire.
+fn explore_and_expand<const N: usize>(classifier: &mut SembasSession<N>, root: Halfspace<N>) {
+    let domain = Domain::normalized();
+    let adh_f = ConstantAdhererFactory::new(ANGLE, None);
+
+    let mut root = root;
 
     loop {
         println!("Starting boundary exploration");
@@ -66,8 +86,11 @@ fn main() {
         let mut expl = MeshExplorer::new(JUMP_DIST, root, JUMP_DIST * 0.8, adh_f);
 
         loop {
-            match expl.step(&mut classifier) {
-                Ok(None) => panic!("Ran out of boundary to explore before experiment completion."),
+            match expl.step(classifier) {
+                Ok(None) => {
+                    println!("Ran out of boundary to explore before experiment completion.");
+                    return;
+                }
                 Err(e) => println!("Got error: {e:?}"),
                 _ => {
                     if let Some(msg) = classifier.expect_msg().unwrap() {
@@ -87,12 +110,13 @@ fn main() {
         println!("Reacquiring boundary");
         classifier.update_phase(MSG_REACQUIRE);
         let (boundary_update, distances) = reacquire_all_hybrid(
-            &mut classifier,
+            classifier,
             expl.boundary(),
             &domain,
             JUMP_DIST * 5.0,
             JUMP_DIST / 2.0,
-            10,
+            1,
+            20,
         )
         .unwrap();
 
@@ -116,7 +140,7 @@ fn main() {
         println!("max movement: {max_movement}");
 
         println!("Saving boundary after reacquisition...");
-        let new_boundary: Vec<Halfspace<2>> = boundary_update.iter().filter_map(|x| *x).collect();
+        let new_boundary: Vec<Halfspace<N>> = boundary_update.iter().filter_map(|x| *x).collect();
         save_boundary(&new_boundary, ".data/rl-boundary/post_reacq.json").unwrap();
 
         root = boundary_update
@@ -126,12 +150,41 @@ fn main() {
             .expect("Failed to reacquire the boundary");
     }
 }
+/// Given a starting half space, it continuously explores the boundary. It will then
+/// be trained on that boundary (mutating the boundary) at which point it will reac-
+/// quire.
+fn explore<const N: usize>(classifier: &mut SembasSession<N>, root: Halfspace<N>) {
+    let adh_f = ConstantAdhererFactory::new(ANGLE, None);
+
+    println!("Starting boundary exploration");
+    classifier.update_phase(MSG_PHASE_BOUNDARY_EXPL);
+    let mut expl = MeshExplorer::new(JUMP_DIST, root, JUMP_DIST * 0.8, adh_f);
+
+    loop {
+        if let Some(msg) = classifier.expect_msg().unwrap() {
+            println!("FUT updated, reacquiring boundary, {msg} (should be reacq)");
+            if msg != "REACQ" {
+                panic!("Did not receive request or REACQ message, but got '{msg}' instead?")
+            }
+            break;
+        }
+        match expl.step(classifier) {
+            Ok(None) => {
+                println!("Ran out of boundary to explore before experiment completion.");
+                return;
+            }
+            Err(e) => println!("Got error: {e:?}"),
+            _ => (),
+        }
+    }
+}
 
 fn find_initial_boundary_pair<const N: usize, C: Classifier<N>>(
     classifier: &mut C,
     max_samples: i32,
+    seed: u64,
 ) -> Result<BoundaryPair<N>> {
-    let mut search = MonteCarloSearch::new(Domain::normalized(), 1);
+    let mut search = MonteCarloSearch::new(Domain::normalized(), seed);
     let mut take_sample = move || {
         let p = search.sample();
         classifier
